@@ -1,28 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { describeMissingSecrets, getAppTimezone, getSessionHorizonJours } from "@/lib/env";
+import { explainPrismaError } from "@/lib/prismaErrors";
+import { logger } from "@/lib/logger";
+import type { Cours, EmploiDuTemps, Formateur, LicenceZoom, Session } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+type EmploiAvecRelations = EmploiDuTemps & { cours: Cours; formateur: Formateur };
+type SessionAvecCours = Session & { emploiDuTemps: { cours: Cours } };
 
 function Badge({ ok, label }: { ok: boolean; label: string }) {
   return <span className={`badge ${ok ? "" : "warn"}`}>{label}</span>;
 }
 
 export default async function HomePage() {
-  const [formateurs, licences, emplois, sessions] = await Promise.all([
-    prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
-    prisma.licenceZoom.findMany({ orderBy: { compteEmail: "asc" } }),
-    prisma.emploiDuTemps.findMany({
-      include: { cours: true, formateur: true },
-      orderBy: { heureDebut: "asc" },
-    }),
-    prisma.session.findMany({
-      include: { emploiDuTemps: { include: { cours: true } } },
-      orderBy: { dateReelle: "asc" },
-      take: 20,
-    }),
-  ]);
-
   const missing = describeMissingSecrets();
   const timezone = getAppTimezone();
   let horizon = 14;
@@ -30,6 +22,35 @@ export default async function HomePage() {
     horizon = getSessionHorizonJours();
   } catch {
     horizon = 14;
+  }
+
+  let formateurs: Formateur[] = [];
+  let licences: LicenceZoom[] = [];
+  let emplois: EmploiAvecRelations[] = [];
+  let sessions: SessionAvecCours[] = [];
+  let dbError: { title: string; detail: string; code: string | undefined } | undefined;
+
+  try {
+    [formateurs, licences, emplois, sessions] = await Promise.all([
+      prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
+      prisma.licenceZoom.findMany({ orderBy: { compteEmail: "asc" } }),
+      prisma.emploiDuTemps.findMany({
+        include: { cours: true, formateur: true },
+        orderBy: { heureDebut: "asc" },
+      }),
+      prisma.session.findMany({
+        include: { emploiDuTemps: { include: { cours: true } } },
+        orderBy: { dateReelle: "asc" },
+        take: 20,
+      }),
+    ]);
+  } catch (error) {
+    dbError = explainPrismaError(error);
+    logger.error("Lecture Prisma de la page d'accueil en échec", {
+      title: dbError.title,
+      detail: dbError.detail,
+      code: dbError.code,
+    });
   }
 
   return (
@@ -54,6 +75,23 @@ export default async function HomePage() {
           </p>
         )}
       </div>
+
+      {dbError ? (
+        <section className="card" style={{ marginBottom: "1rem" }}>
+          <h2>{dbError.title}</h2>
+          <p className="missing">{dbError.detail}</p>
+          {dbError.code ? (
+            <p>
+              Code Prisma : <code>{dbError.code}</code>
+            </p>
+          ) : null}
+          <p>
+            Vercel → Settings → Environment Variables : <code>DATABASE_URL</code> (Neon pooled,
+            hôte <code>-pooler</code>) et <code>DIRECT_URL</code> (Neon direct, sans pooler),
+            puis Redeploy. Appliquer les migrations : <code>npx prisma migrate deploy</code>.
+          </p>
+        </section>
+      ) : null}
 
       <div className="grid two">
         <section className="card">
