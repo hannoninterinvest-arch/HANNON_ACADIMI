@@ -9,6 +9,7 @@ fi
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
   npx prisma migrate deploy
+  npx prisma db seed || echo "Seed ignoré (base déjà peuplée ou seed indisponible)."
 else
   echo "DATABASE_URL absente : migrations ignorées (le runtime affichera la config manquante)."
 fi

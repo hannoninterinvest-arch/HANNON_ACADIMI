@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { describeMissingSecrets, getAppTimezone, getSessionHorizonJours } from "@/lib/env";
 import { explainPrismaError } from "@/lib/prismaErrors";
+import { seedIfEmpty } from "@/lib/seed";
 import { logger } from "@/lib/logger";
 import type { Cours, EmploiDuTemps, Formateur, LicenceZoom, Session } from "@prisma/client";
 
@@ -30,7 +31,7 @@ export default async function HomePage() {
   let sessions: SessionAvecCours[] = [];
   let dbError: { title: string; detail: string; code: string | undefined } | undefined;
 
-  try {
+  async function charger(): Promise<void> {
     [formateurs, licences, emplois, sessions] = await Promise.all([
       prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
       prisma.licenceZoom.findMany({ orderBy: { compteEmail: "asc" } }),
@@ -44,6 +45,16 @@ export default async function HomePage() {
         take: 20,
       }),
     ]);
+  }
+
+  try {
+    await charger();
+    if (formateurs.length === 0 && licences.length === 0 && emplois.length === 0) {
+      const seed = await seedIfEmpty(prisma);
+      if (seed.seeded) {
+        await charger();
+      }
+    }
   } catch (error) {
     dbError = explainPrismaError(error);
     logger.error("Lecture Prisma de la page d'accueil en échec", {
@@ -146,7 +157,10 @@ export default async function HomePage() {
       <section className="card" style={{ marginTop: "1rem" }}>
         <h2>Emplois du temps</h2>
         {emplois.length === 0 ? (
-          <p>Aucun créneau. Lancez <code>npx prisma db seed</code>.</p>
+          <p>
+            Aucun créneau. Les données de démo se créent toutes seules si la base est vide, ou
+            via <code>POST /api/cron/seed</code> (header Bearer CRON_SECRET).
+          </p>
         ) : (
           <table>
             <thead>
