@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum JourSemaine {
+  LUNDI
+  MARDI
+  MERCREDI
+  JEUDI
+  VENDREDI
+  SAMEDI
+  DIMANCHE
+}
+
+enum StatutSession {
+  PLANIFIEE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum StatutLicence {
+  LIBRE
+  OCCUPE
+}
+
+/// Formateur métier de la plateforme. N'a jamais les identifiants Zoom du pool.
+model Formateur {
+  id        String   @id @default(cuid())
+  nom       String
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  emploisDuTemps EmploiDuTemps[]
+}
+
+/// Cours auquel les étudiants s'inscrivent. Référencé par EmploiDuTemps.coursId.
+model Cours {
+  id          String   @id @default(cuid())
+  titre       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  emploisDuTemps EmploiDuTemps[]
+  inscriptions   Inscription[]
+}
+
+model Etudiant {
+  id        String   @id @default(cuid())
+  nom       String
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  inscriptions Inscription[]
+}
+
+model Inscription {
+  id         String   @id @default(cuid())
+  etudiantId String
+  coursId    String
+  createdAt  DateTime @default(now())
+
+  etudiant Etudiant @relation(fields: [etudiantId], references: [id], onDelete: Cascade)
+  cours    Cours    @relation(fields: [coursId], references: [id], onDelete: Cascade)
+
+  @@unique([etudiantId, coursId])
+  @@index([coursId])
+}
+
+/// Créneau récurrent d'un cours (ex. tous les lundis 18h-20h sur une période).
+model EmploiDuTemps {
+  id               String      @id @default(cuid())
+  coursId          String
+  formateurId      String
+  jourSemaine      JourSemaine
+  /// Heure de début locale au fuseau APP_TIMEZONE, format HH:mm (ex. "18:00")
+  heureDebut       String
+  dureeMinutes     Int
+  dateDebutPeriode DateTime    @db.Date
+  dateFinPeriode   DateTime    @db.Date
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  cours     Cours      @relation(fields: [coursId], references: [id], onDelete: Restrict)
+  formateur Formateur  @relation(fields: [formateurId], references: [id], onDelete: Restrict)
+  sessions  Session[]
+
+  @@index([formateurId])
+  @@index([coursId])
+}
+
+/// Occurrence réelle d'un créneau. Jamais supprimée : on passe le statut à ANNULEE.
+model Session {
+  id              String        @id @default(cuid())
+  emploiDuTempsId String
+  dateReelle      DateTime
+  zoomMeetingId   String?
+  joinUrl         String?
+  /// Host key du compte Zoom du pool, transmise au formateur pour revendiquer l'animation.
+  hostKey         String?
+  statut          StatutSession @default(PLANIFIEE)
+  /// Compte Zoom sur lequel la réunion a été créée (peut rester LIBRE jusqu'au meeting.started).
+  licenceZoomId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  emploiDuTemps    EmploiDuTemps @relation(fields: [emploiDuTempsId], references: [id], onDelete: Restrict)
+  licenceZoom      LicenceZoom?  @relation("SessionLicenceAssignee", fields: [licenceZoomId], references: [id], onDelete: SetNull)
+  licenceOccupante LicenceZoom?  @relation("LicenceSessionEnCours")
+
+  @@unique([emploiDuTempsId, dateReelle])
+  @@index([statut])
+  @@index([dateReelle])
+  @@index([zoomMeetingId])
+  @@index([licenceZoomId])
+}
+
+/// Compte Zoom mutualisé. OCCUPE uniquement pendant une réunion en cours.
+model LicenceZoom {
+  id               String        @id @default(cuid())
+  compteEmail      String        @unique
+  zoomUserId       String        @unique
+  statut           StatutLicence @default(LIBRE)
+  /// Host key que nous posons nous-mêmes via l'API (Zoom ne la relit plus en GET).
+  hostKey          String?
+  sessionIdEnCours String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  sessionEnCours Session?  @relation("LicenceSessionEnCours", fields: [sessionIdEnCours], references: [id], onDelete: SetNull)
+  sessions       Session[] @relation("SessionLicenceAssignee")
+
+  @@index([statut])
+}
