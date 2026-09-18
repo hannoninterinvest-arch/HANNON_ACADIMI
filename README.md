@@ -24,6 +24,8 @@ Scopes Zoom Server-to-Server à activer : `meeting:write:admin`, `meeting:read:a
 
 Webhook : `https://<domaine>/api/webhooks/zoom` — événements `meeting.started` et `meeting.ended`.
 
+Plateforme : https://hannon-acadimi.vercel.app
+
 ## Déploiement Vercel
 
 Ce projet est une app **Next.js (App Router)**, pas un site statique. Dans Vercel → Project Settings → Build & Development :
