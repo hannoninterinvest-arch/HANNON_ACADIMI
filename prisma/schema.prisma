@@ -31,7 +31,57 @@ enum StatutLicence {
   OCCUPE
 }
 
-/// Formateur métier de la plateforme. N'a jamais les identifiants Zoom du pool.
+enum RoleCompte {
+  ADMIN
+  FORMATEUR
+  ETUDIANT_B2C
+  SOCIETE
+  EMPLOYE
+}
+
+model Compte {
+  id          String     @id @default(cuid())
+  email       String     @unique
+  nom         String
+  motDePasse  String
+  role        RoleCompte
+  societeId   String?
+  formateurId String?    @unique
+  etudiantId  String?    @unique
+  createdAt   DateTime   @default(now())
+
+  societe   Societe?   @relation(fields: [societeId], references: [id], onDelete: SetNull)
+  formateur Formateur? @relation(fields: [formateurId], references: [id], onDelete: SetNull)
+  etudiant  Etudiant?  @relation(fields: [etudiantId], references: [id], onDelete: SetNull)
+
+  @@index([role])
+  @@index([societeId])
+}
+
+model Societe {
+  id        String        @id @default(cuid())
+  nom       String
+  email     String        @unique
+  createdAt DateTime      @default(now())
+  comptes   Compte[]
+  achats    AchatPlaces[]
+}
+
+/// Achat B2B : N places pour un cours, ensuite assignées à des employés.
+model AchatPlaces {
+  id        String   @id @default(cuid())
+  societeId String
+  coursId   String
+  nbPlaces  Int
+  createdAt DateTime @default(now())
+
+  societe Societe @relation(fields: [societeId], references: [id], onDelete: Cascade)
+  cours   Cours   @relation(fields: [coursId], references: [id], onDelete: Restrict)
+
+  @@index([societeId])
+  @@index([coursId])
+}
+
 model Formateur {
   id        String   @id @default(cuid())
   nom       String
@@ -39,17 +89,19 @@ model Formateur {
   createdAt DateTime @default(now())
 
   emploisDuTemps EmploiDuTemps[]
+  compte         Compte?
 }
 
-/// Cours auquel les étudiants s'inscrivent. Référencé par EmploiDuTemps.coursId.
 model Cours {
   id          String   @id @default(cuid())
   titre       String
   description String?
+  ouvertB2c   Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   emploisDuTemps EmploiDuTemps[]
   inscriptions   Inscription[]
+  achats         AchatPlaces[]
 }
 
 model Etudiant {
@@ -59,6 +111,7 @@ model Etudiant {
   createdAt DateTime @default(now())
 
   inscriptions Inscription[]
+  compte       Compte?
 }
 
 model Inscription {
@@ -74,13 +127,11 @@ model Inscription {
   @@index([coursId])
 }
 
-/// Créneau récurrent d'un cours (ex. tous les lundis 18h-20h sur une période).
 model EmploiDuTemps {
   id               String      @id @default(cuid())
   coursId          String
   formateurId      String
   jourSemaine      JourSemaine
-  /// Heure de début locale au fuseau APP_TIMEZONE, format HH:mm (ex. "18:00")
   heureDebut       String
   dureeMinutes     Int
   dateDebutPeriode DateTime    @db.Date
@@ -88,25 +139,22 @@ model EmploiDuTemps {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  cours     Cours      @relation(fields: [coursId], references: [id], onDelete: Restrict)
-  formateur Formateur  @relation(fields: [formateurId], references: [id], onDelete: Restrict)
+  cours     Cours     @relation(fields: [coursId], references: [id], onDelete: Restrict)
+  formateur Formateur @relation(fields: [formateurId], references: [id], onDelete: Restrict)
   sessions  Session[]
 
   @@index([formateurId])
   @@index([coursId])
 }
 
-/// Occurrence réelle d'un créneau. Jamais supprimée : on passe le statut à ANNULEE.
 model Session {
   id              String        @id @default(cuid())
   emploiDuTempsId String
   dateReelle      DateTime
   zoomMeetingId   String?
   joinUrl         String?
-  /// Host key du compte Zoom du pool, transmise au formateur pour revendiquer l'animation.
   hostKey         String?
   statut          StatutSession @default(PLANIFIEE)
-  /// Compte Zoom sur lequel la réunion a été créée (peut rester LIBRE jusqu'au meeting.started).
   licenceZoomId   String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -122,13 +170,11 @@ model Session {
   @@index([licenceZoomId])
 }
 
-/// Compte Zoom mutualisé. OCCUPE uniquement pendant une réunion en cours.
 model LicenceZoom {
   id               String        @id @default(cuid())
   compteEmail      String        @unique
   zoomUserId       String        @unique
   statut           StatutLicence @default(LIBRE)
-  /// Host key que nous posons nous-mêmes via l'API (Zoom ne la relit plus en GET).
   hostKey          String?
   sessionIdEnCours String?       @unique
   createdAt        DateTime      @default(now())

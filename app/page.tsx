@@ -1,236 +1,79 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { describeMissingSecrets, getAppTimezone, getSessionHorizonJours } from "@/lib/env";
-import { explainPrismaError } from "@/lib/prismaErrors";
 import { seedIfEmpty } from "@/lib/seed";
-import { logger } from "@/lib/logger";
-import type { Cours, EmploiDuTemps, Formateur, LicenceZoom, Session } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type EmploiAvecRelations = EmploiDuTemps & { cours: Cours; formateur: Formateur };
-type SessionAvecCours = Session & { emploiDuTemps: { cours: Cours } };
-
-function Badge({ ok, label }: { ok: boolean; label: string }) {
-  return <span className={`badge ${ok ? "" : "warn"}`}>{label}</span>;
-}
-
 export default async function HomePage() {
-  const missing = describeMissingSecrets();
-  const timezone = getAppTimezone();
-  let horizon = 14;
   try {
-    horizon = getSessionHorizonJours();
+    await seedIfEmpty(prisma);
   } catch {
-    horizon = 14;
+    // la page marketing reste lisible même si Neon n'est pas prêt
   }
 
-  let formateurs: Formateur[] = [];
-  let licences: LicenceZoom[] = [];
-  let emplois: EmploiAvecRelations[] = [];
-  let sessions: SessionAvecCours[] = [];
-  let dbError: { title: string; detail: string; code: string | undefined } | undefined;
-
-  async function charger(): Promise<void> {
-    [formateurs, licences, emplois, sessions] = await Promise.all([
-      prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
-      prisma.licenceZoom.findMany({ orderBy: { compteEmail: "asc" } }),
-      prisma.emploiDuTemps.findMany({
-        include: { cours: true, formateur: true },
-        orderBy: { heureDebut: "asc" },
-      }),
-      prisma.session.findMany({
-        include: { emploiDuTemps: { include: { cours: true } } },
-        orderBy: { dateReelle: "asc" },
-        take: 20,
-      }),
-    ]);
-  }
-
-  try {
-    await charger();
-    if (formateurs.length === 0 && licences.length === 0 && emplois.length === 0) {
-      const seed = await seedIfEmpty(prisma);
-      if (seed.seeded) {
-        await charger();
-      }
-    }
-  } catch (error) {
-    dbError = explainPrismaError(error);
-    logger.error("Lecture Prisma de la page d'accueil en échec", {
-      title: dbError.title,
-      detail: dbError.detail,
-      code: dbError.code,
-    });
-  }
+  const cours = await prisma.cours.findMany({
+    where: { ouvertB2c: true },
+    orderBy: { titre: "asc" },
+    take: 8,
+  }).catch(() => []);
 
   return (
     <main>
       <h1>Hannon Acadimi</h1>
       <p className="lead">
-        Plateforme e-learning — création automatique des réunions Zoom via un pool de licences,
-        sans jamais donner les identifiants Zoom aux formateurs.
+        Formations en visio. Les formateurs animent avec un host key : jamais les identifiants
+        Zoom du pool. Cinq types de comptes, un emploi du temps global, des licences Zoom Pro
+        empilables pour des séances simultanées.
       </p>
 
-      <div className="card" style={{ marginBottom: "1rem" }}>
-        <h2>Configuration</h2>
-        <p>
-          Fuseau : <code>{timezone}</code> — horizon de génération : {horizon} jours
-        </p>
-        {missing.length === 0 ? (
-          <Badge ok label="Toutes les variables d'environnement sont renseignées" />
-        ) : (
-          <p className="missing">
-            Variables encore vides (l&apos;app démarre, mais Zoom / e-mail ne pourront pas
-            être appelés) : <code>{missing.join(", ")}</code>
-          </p>
-        )}
-      </div>
-
-      {dbError ? (
-        <section className="card" style={{ marginBottom: "1rem" }}>
-          <h2>{dbError.title}</h2>
-          <p className="missing">{dbError.detail}</p>
-          {dbError.code ? (
-            <p>
-              Code Prisma : <code>{dbError.code}</code>
-            </p>
-          ) : null}
-          <p>
-            Vercel → Settings → Environment Variables : <code>DATABASE_URL</code> (Neon pooled,
-            hôte <code>-pooler</code>) et <code>DIRECT_URL</code> (Neon direct, sans pooler),
-            puis Redeploy. Appliquer les migrations : <code>npx prisma migrate deploy</code>.
-          </p>
-        </section>
-      ) : null}
-
-      <div className="grid two">
-        <section className="card">
-          <h2>Formateurs ({formateurs.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              {formateurs.map((f) => (
-                <tr key={f.id}>
-                  <td>{f.nom}</td>
-                  <td>{f.email}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section className="card">
-          <h2>Pool Zoom ({licences.length})</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Compte</th>
-                <th>Statut</th>
-                <th>Host key</th>
-              </tr>
-            </thead>
-            <tbody>
-              {licences.map((l) => (
-                <tr key={l.id}>
-                  <td>{l.compteEmail}</td>
-                  <td>
-                    <span className={`badge ${l.statut === "LIBRE" ? "" : "warn"}`}>
-                      {l.statut}
-                    </span>
-                  </td>
-                  <td>
-                    <code>{l.hostKey ?? "—"}</code>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      <section className="card" style={{ marginTop: "1rem" }}>
-        <h2>Emplois du temps</h2>
-        {emplois.length === 0 ? (
-          <p>
-            Aucun créneau. Les données de démo se créent toutes seules si la base est vide, ou
-            via <code>POST /api/cron/seed</code> (header Bearer CRON_SECRET).
-          </p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Cours</th>
-                <th>Formateur</th>
-                <th>Créneau</th>
-                <th>Période</th>
-              </tr>
-            </thead>
-            <tbody>
-              {emplois.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.cours.titre}</td>
-                  <td>{e.formateur.nom}</td>
-                  <td>
-                    {e.jourSemaine} {e.heureDebut} ({e.dureeMinutes} min)
-                  </td>
-                  <td>
-                    {e.dateDebutPeriode.toISOString().slice(0, 10)} →{" "}
-                    {e.dateFinPeriode.toISOString().slice(0, 10)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="card" style={{ marginTop: "1rem" }}>
-        <h2>Sessions ({sessions.length} affichées)</h2>
-        {sessions.length === 0 ? (
-          <p>
-            Pas encore de session. Appeler{" "}
-            <code>POST /api/cron/generer-sessions</code> avec le header{" "}
-            <code>Authorization: Bearer CRON_SECRET</code>.
-          </p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Cours</th>
-                <th>Statut</th>
-                <th>Join URL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.dateReelle.toISOString()}</td>
-                  <td>{s.emploiDuTemps.cours.titre}</td>
-                  <td>
-                    <span className={`badge ${s.statut === "ANNULEE" ? "warn" : ""}`}>
-                      {s.statut}
-                    </span>
-                  </td>
-                  <td>{s.joinUrl ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <p className="footer">
-        Routes internes : <code>/api/cron/generer-sessions</code>,{" "}
-        <code>/api/webhooks/zoom</code>, <code>/api/sessions</code>,{" "}
-        <code>/api/emplois-du-temps/[id]</code>
+      <p>
+        <Link className="btn" href="/connexion">
+          Se connecter
+        </Link>{" "}
+        <Link className="btn-secondary" href="/inscription">
+          Créer un compte étudiant
+        </Link>
       </p>
+
+      <div className="roles">
+        <article className="card role-card">
+          <h3>1. Admin</h3>
+          <p>Gère formateurs, formations, étudiants, sociétés et le pool Zoom.</p>
+        </article>
+        <article className="card role-card">
+          <h3>2. Formateur</h3>
+          <p>Voit ses séances, le lien et le host key — pas le mot de passe Zoom.</p>
+        </article>
+        <article className="card role-card">
+          <h3>3. Étudiant B2C</h3>
+          <p>Crée son compte et s’inscrit à une ou plusieurs formations.</p>
+        </article>
+        <article className="card role-card">
+          <h3>4. Société</h3>
+          <p>Achète des places pour ses employés et suit l’emploi du temps.</p>
+        </article>
+        <article className="card role-card">
+          <h3>5. Employé</h3>
+          <p>Rejoint les formations payées par sa société.</p>
+        </article>
+      </div>
+
+      <section className="card">
+        <h2>Catalogue</h2>
+        {cours.length === 0 ? (
+          <p>Aucune formation publiée pour le moment.</p>
+        ) : (
+          <ul className="plain">
+            {cours.map((c) => (
+              <li key={c.id}>
+                <strong>{c.titre}</strong>
+                {c.description ? ` — ${c.description}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

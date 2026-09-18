@@ -1,5 +1,8 @@
-import { JourSemaine, type PrismaClient } from "@prisma/client";
+import { JourSemaine, RoleCompte, type PrismaClient } from "@prisma/client";
 import { logger } from "./logger";
+import { hasherMotDePasse } from "./password";
+
+export const MOT_DE_PASSE_DEMO = "Hannon2026!";
 
 export type SeedResult = {
   seeded: boolean;
@@ -22,14 +25,100 @@ async function counts(prisma: PrismaClient) {
   return { formateurs, licences, emploisDuTemps, cours, etudiants };
 }
 
-/**
- * Insère le jeu de démo uniquement si la base est vide.
- * Ne supprime jamais de données existantes.
- */
+export async function assurerComptesDemo(prisma: PrismaClient): Promise<void> {
+  const hash = await hasherMotDePasse(MOT_DE_PASSE_DEMO);
+
+  await prisma.compte.upsert({
+    where: { email: "admin@hannon-acadimi.test" },
+    update: { role: RoleCompte.ADMIN, nom: "Admin Hannon" },
+    create: {
+      email: "admin@hannon-acadimi.test",
+      nom: "Admin Hannon",
+      motDePasse: hash,
+      role: RoleCompte.ADMIN,
+    },
+  });
+
+  const amira = await prisma.formateur.findUnique({
+    where: { email: "amira.benali@hannon-acadimi.test" },
+  });
+  if (amira) {
+    await prisma.compte.upsert({
+      where: { email: amira.email },
+      update: { role: RoleCompte.FORMATEUR, formateurId: amira.id, nom: amira.nom },
+      create: {
+        email: amira.email,
+        nom: amira.nom,
+        motDePasse: hash,
+        role: RoleCompte.FORMATEUR,
+        formateurId: amira.id,
+      },
+    });
+  }
+
+  const sofia = await prisma.etudiant.findUnique({
+    where: { email: "sofia.martin@hannon-acadimi.test" },
+  });
+  if (sofia) {
+    await prisma.compte.upsert({
+      where: { email: sofia.email },
+      update: { role: RoleCompte.ETUDIANT_B2C, etudiantId: sofia.id, nom: sofia.nom },
+      create: {
+        email: sofia.email,
+        nom: sofia.nom,
+        motDePasse: hash,
+        role: RoleCompte.ETUDIANT_B2C,
+        etudiantId: sofia.id,
+      },
+    });
+  }
+
+  const societe = await prisma.societe.upsert({
+    where: { email: "rh@atlas-formation.test" },
+    update: { nom: "Atlas Formation" },
+    create: { nom: "Atlas Formation", email: "rh@atlas-formation.test" },
+  });
+  await prisma.compte.upsert({
+    where: { email: "rh@atlas-formation.test" },
+    update: { role: RoleCompte.SOCIETE, societeId: societe.id, nom: "RH Atlas" },
+    create: {
+      email: "rh@atlas-formation.test",
+      nom: "RH Atlas",
+      motDePasse: hash,
+      role: RoleCompte.SOCIETE,
+      societeId: societe.id,
+    },
+  });
+
+  const employe = await prisma.etudiant.upsert({
+    where: { email: "employe.atlas@hannon-acadimi.test" },
+    update: { nom: "Nour Atlas" },
+    create: { nom: "Nour Atlas", email: "employe.atlas@hannon-acadimi.test" },
+  });
+  await prisma.compte.upsert({
+    where: { email: employe.email },
+    update: {
+      role: RoleCompte.EMPLOYE,
+      societeId: societe.id,
+      etudiantId: employe.id,
+      nom: employe.nom,
+    },
+    create: {
+      email: employe.email,
+      nom: employe.nom,
+      motDePasse: hash,
+      role: RoleCompte.EMPLOYE,
+      societeId: societe.id,
+      etudiantId: employe.id,
+    },
+  });
+}
+
 export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
   const before = await counts(prisma);
   if (before.formateurs > 0 || before.licences > 0 || before.emploisDuTemps > 0) {
-    logger.info("Seed ignoré : la base contient déjà des données", before);
+    await assurerComptesDemo(prisma);
+    logger.info("Seed métier ignoré (données déjà présentes), comptes démo assurés", before);
     return { seeded: false, reason: "already_populated", ...before };
   }
 
@@ -56,6 +145,7 @@ export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
       data: {
         titre: "Anglais professionnel B1",
         description: "Cours hebdomadaire en visio — lundi 18h-20h.",
+        ouvertB2c: true,
       },
     }));
 
@@ -64,17 +154,14 @@ export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
     update: {},
     create: { nom: "Sofia Martin", email: "sofia.martin@hannon-acadimi.test" },
   });
-  const etudiantB = await prisma.etudiant.upsert({
+  await prisma.etudiant.upsert({
     where: { email: "youssef.haddad@hannon-acadimi.test" },
     update: {},
     create: { nom: "Youssef Haddad", email: "youssef.haddad@hannon-acadimi.test" },
   });
 
   await prisma.inscription.createMany({
-    data: [
-      { etudiantId: etudiantA.id, coursId: cours.id },
-      { etudiantId: etudiantB.id, coursId: cours.id },
-    ],
+    data: [{ etudiantId: etudiantA.id, coursId: cours.id }],
     skipDuplicates: true,
   });
 
@@ -123,6 +210,7 @@ export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
     });
   }
 
+  await assurerComptesDemo(prisma);
   const after = await counts(prisma);
   logger.info("Seed de démonstration inséré", after);
   return { seeded: true, reason: "created", ...after };
