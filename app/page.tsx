@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { seedIfEmpty } from "@/lib/seed";
 import { formatEuros, formaterCreneau, decouperCreneau } from "@/lib/format";
+import { VISUELS } from "@/lib/visuels";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -86,6 +87,24 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="galerie" aria-label="La formation chez Hannon Academy">
+        <div className="wrap mosaic">
+          <figure className="mosaic-large">
+            <img src={VISUELS[1].src} alt={VISUELS[1].alt} />
+          </figure>
+          <figure>
+            <img src={VISUELS[0].src} alt={VISUELS[0].alt} />
+          </figure>
+          <figure>
+            <img src={VISUELS[2].src} alt={VISUELS[2].alt} />
+          </figure>
+          <figure className="mosaic-wide">
+            <img src={VISUELS[3].src} alt={VISUELS[3].alt} />
+            <figcaption>Présentiel, visio et intra-entreprise, avec les mêmes places tenues.</figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section className="upcoming-band" id="calendrier">
         <div className="wrap upcoming-layout">
           <div className="upcoming-title">
@@ -157,6 +176,7 @@ export default async function HomePage() {
                       <span>Réf. {referenceCourte(item.id)}</span>
                       <span>{date ? `${date.jour} ${date.mois}` : "Sur demande"}</span>
                     </div>
+                    {item.imageChemin ? <img className="course-photo" src={item.imageChemin} alt="" /> : null}
                     <h3>{item.titre}</h3>
                     <p className="muted">{item.description}</p>
                     <p className="price">
@@ -190,6 +210,7 @@ export default async function HomePage() {
           <h2 className="center">Apprenez comme vous le souhaitez</h2>
           <div className="mode-grid">
             <article className="mode-card">
+              <img className="mode-photo" src={VISUELS[3].src} alt="" />
               <span className="mode-index">01</span>
               <h3>Classe en présentiel</h3>
               <ul>
@@ -199,6 +220,7 @@ export default async function HomePage() {
               </ul>
             </article>
             <article className="mode-card featured">
+              <img className="mode-photo" src={VISUELS[2].src} alt="" />
               <span className="mode-index">02</span>
               <h3>Classe à distance</h3>
               <ul>
@@ -211,6 +233,7 @@ export default async function HomePage() {
               </Link>
             </article>
             <article className="mode-card">
+              <img className="mode-photo" src={VISUELS[0].src} alt="" />
               <span className="mode-index">03</span>
               <h3>Intra-entreprise</h3>
               <ul>

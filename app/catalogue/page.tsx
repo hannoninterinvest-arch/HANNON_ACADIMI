@@ -68,6 +68,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
             const date = session ? decouperCreneau(session.dateReelle, session.fuseauHoraire) : null;
             return (
               <article className="course-card" key={item.id}>
+                {item.imageChemin ? <img className="course-photo" src={item.imageChemin} alt="" /> : null}
                 <div className="upcoming-meta">
                   <span>Réf. HA-{item.id.slice(-4).toUpperCase()}</span>
                   <span>{date ? `${date.jour} ${date.mois} · ${date.heure}` : "Sur demande"}</span>

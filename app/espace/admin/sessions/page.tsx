@@ -1,9 +1,11 @@
+import { DateTime } from "luxon";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formaterCreneau } from "@/lib/format";
 import { disponibilitesSessions } from "@/lib/commerce/service";
+import { participantsParSession } from "@/lib/participants";
 import { Banniere } from "@/app/components/Banniere";
-import { actionAdminSession, actionAdminSessionModifier } from "@/lib/actions/adminCatalogue";
+import { actionAdminSession, actionAdminSessionModifier, actionAdminSessionSupprimer } from "@/lib/actions/adminCatalogue";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ export default async function AdminSessions({
     }),
   ]);
   const stocks = await disponibilitesSessions(sessions.map((session) => session.id));
+  const participants = await participantsParSession(sessions.map((session) => session.id), true);
 
   return (
     <>
@@ -69,6 +72,14 @@ export default async function AdminSessions({
           </label>
         </div>
         <label>
+          Lien Zoom
+          <input name="lienZoomManuel" placeholder="https://zoom.us/j/…" />
+        </label>
+        <label>
+          Code de réunion
+          <input name="codeReunion" placeholder="123 456 7890" />
+        </label>
+        <label>
           Formateur
           <select name="formateurId" defaultValue="">
             <option value="">À désigner plus tard</option>
@@ -111,15 +122,64 @@ export default async function AdminSessions({
                     <option value="ANNULEE">Annulée</option>
                   </select>
                 </label>
+                <div className="form-row">
+                  <label>
+                    Date
+                    <input
+                      type="date"
+                      name="jour"
+                      defaultValue={DateTime.fromJSDate(session.dateReelle, { zone: "utc" }).setZone(session.fuseauHoraire).toFormat("yyyy-MM-dd")}
+                    />
+                  </label>
+                  <label>
+                    Début
+                    <input
+                      type="time"
+                      name="heureDebut"
+                      defaultValue={DateTime.fromJSDate(session.dateReelle, { zone: "utc" }).setZone(session.fuseauHoraire).toFormat("HH:mm")}
+                    />
+                  </label>
+                  <label>
+                    Fin
+                    <input
+                      type="time"
+                      name="heureFin"
+                      defaultValue={session.dateFin ? DateTime.fromJSDate(session.dateFin, { zone: "utc" }).setZone(session.fuseauHoraire).toFormat("HH:mm") : ""}
+                    />
+                  </label>
+                </div>
                 <label>
                   Lien Zoom
                   <input name="lienZoomManuel" defaultValue={session.lienZoomManuel ?? ""} placeholder="https://zoom.us/j/…" />
                 </label>
+                <label>
+                  Code de réunion
+                  <input name="codeReunion" defaultValue={session.codeReunion ?? ""} />
+                </label>
+                <p className="muted">
+                  {(participants.get(session.id) ?? []).map((personne) => personne.nom).join(", ") || "Aucun participant."}
+                </p>
                 <button type="submit">Enregistrer</button>
               </form>
             );
           })
         )}
+      </div>
+      <div className="grid" style={{ marginTop: "1rem" }}>
+        {sessions.map((session) => {
+          const titre = session.cours?.titre ?? session.emploiDuTemps?.cours.titre ?? "Formation";
+          return (
+            <form className="stack card" action={actionAdminSessionSupprimer} key={`sup-${session.id}`}>
+              <input type="hidden" name="sessionId" value={session.id} />
+              <label className="check">
+                <input type="checkbox" name="confirmer" required /> Supprimer {titre}
+              </label>
+              <button type="submit" className="btn-secondary">
+                Supprimer cette session
+              </button>
+            </form>
+          );
+        })}
       </div>
     </>
   );

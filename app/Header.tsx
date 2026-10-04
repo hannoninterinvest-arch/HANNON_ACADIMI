@@ -43,7 +43,6 @@ export async function Header() {
             ) : (
               <>
                 <Link href="/inscription">Particulier</Link>
-                <Link href="/inscription-societe">Organisation</Link>
                 <Link className="btn-gold" href="/connexion">
                   Connexion
                 </Link>

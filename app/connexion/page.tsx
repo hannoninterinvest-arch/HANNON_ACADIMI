@@ -38,13 +38,8 @@ export default async function ConnexionPage({
         <button type="submit">Entrer</button>
       </form>
       <p className="footer">
-        Comptes de démo (mot de passe <code>{MOT_DE_PASSE_DEMO}</code>) :<br />
-        Admin <code>admin@hannon-acadimi.test</code> · Formateur{" "}
-        <code>amira.benali@hannon-acadimi.test</code> · Particulier{" "}
-        <code>sofia.martin@hannon-acadimi.test</code> · Entreprise{" "}
-        <code>rh@atlas-formation.test</code> · Organisme public{" "}
-        <code>contact@mairie-rivage.test</code> · Apprenant{" "}
-        <code>employe.atlas@hannon-acadimi.test</code>
+        Sur une base vide, le premier administrateur est <code>admin@hannon-acadimi.test</code> avec le mot de passe{" "}
+        <code>{MOT_DE_PASSE_DEMO}</code>. Aucune formation n’est créée automatiquement.
       </p>
     </main>
   );

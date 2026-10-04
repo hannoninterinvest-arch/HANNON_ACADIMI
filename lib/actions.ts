@@ -87,35 +87,8 @@ export async function actionInscriptionB2c(form: FormData): Promise<void> {
   redirect("/espace/etudiant");
 }
 
-export async function actionInscriptionSociete(form: FormData): Promise<void> {
-  const nom = texte(form, "nom");
-  const nomSociete = texte(form, "nomSociete");
-  const email = texte(form, "email").toLowerCase();
-  const telephone = texte(form, "telephone") || null;
-  const motDePasse = String(form.get("motDePasse") ?? "");
-  const typeDemande = texte(form, "typeOrganisation");
-  const type = typeDemande === "ORGANISME_PUBLIC" ? "ORGANISME_PUBLIC" : "ENTREPRISE";
-  if (!nom || !nomSociete || !email || motDePasse.length < 8) {
-    redirect("/inscription-societe?erreur=champs");
-  }
-  if (await prisma.compte.findUnique({ where: { email } })) {
-    redirect("/inscription-societe?erreur=email");
-  }
-  const societe = await prisma.societe.create({
-    data: { nom: nomSociete, email, telephone, type },
-  });
-  const compte = await prisma.compte.create({
-    data: {
-      nom,
-      email,
-      motDePasse: await hasherMotDePasse(motDePasse),
-      role: RoleCompte.SOCIETE,
-      societeId: societe.id,
-      appartenances: { create: { societeId: societe.id, role: "RESPONSABLE" } },
-    },
-  });
-  await creerCookieSession(sessionDepuisCompte(compte));
-  redirect("/espace/societe");
+export async function actionInscriptionSociete(): Promise<void> {
+  redirect("/inscription?erreur=particulier");
 }
 
 export async function actionAdminFormateur(form: FormData): Promise<void> {

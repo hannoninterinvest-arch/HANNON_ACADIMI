@@ -40,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div>
               <h2>Espaces</h2>
               <p><Link href="/connexion">Connexion</Link></p>
-              <p><Link href="/inscription-societe">Espace organisation</Link></p>
+              <p><Link href="/connexion">Espace organisation</Link></p>
               <p><Link href="/espace">Mon espace</Link></p>
             </div>
           </div>

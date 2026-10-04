@@ -38,6 +38,10 @@ prisma/*.db-journal
 # documents personnels (certificats, ressources)
 /storage/prive
 
+# photos déposées par l’administrateur
+/public/uploads/formations/*
+!/public/uploads/formations/.gitkeep
+
 # IDE
 .idea
 .vscode

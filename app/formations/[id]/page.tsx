@@ -64,8 +64,10 @@ export default async function FormationPage({
   return (
     <main>
       <p className="eyebrow">Formation</p>
+      {cours.imageChemin ? <img className="formation-cover" src={cours.imageChemin} alt="" /> : null}
       <h1>{cours.titre}</h1>
       <p className="lead">{cours.description || "Formation en visioconférence, sur une session datée."}</p>
+      {cours.horaire ? <p className="tag">{cours.horaire}</p> : null}
       <Banniere erreur={searchParams.erreur} />
       <section className="card" style={{ marginBottom: "1rem" }}>
         <h2>Tarifs</h2>

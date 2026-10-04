@@ -12,6 +12,11 @@ const OK: Record<string, string> = {
   ressource: "Ressource ajoutée.",
   certificat: "Certificat attribué.",
   rembourse: "Commande remboursée. Les accès liés ont été retirés.",
+  formation: "Formation enregistrée.",
+  compte: "Compte créé. La personne peut se connecter.",
+  societe: "Organisation créée.",
+  employe: "Compte collaborateur créé.",
+  suppression: "Élément supprimé.",
 };
 
 export function Banniere({

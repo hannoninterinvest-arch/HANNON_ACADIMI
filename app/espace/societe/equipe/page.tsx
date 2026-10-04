@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { lireFlash } from "@/lib/flash";
 import { Banniere } from "@/app/components/Banniere";
-import { actionImporterCsv, actionInviterEmploye } from "@/lib/actions/organisation";
+import { actionCreerCompteEmploye, actionImporterCsv, actionInviterEmploye } from "@/lib/actions/organisation";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +52,23 @@ export default async function EquipePage({
           </ul>
         </section>
       ) : null}
+
+      <form className="stack card" action={actionCreerCompteEmploye} style={{ marginTop: "1rem" }}>
+        <h2>Créer un compte collaborateur</h2>
+        <label>
+          Nom
+          <input name="nom" required />
+        </label>
+        <label>
+          E-mail
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Mot de passe
+          <input type="password" name="motDePasse" minLength={8} required />
+        </label>
+        <button type="submit">Créer le compte</button>
+      </form>
 
       <form className="stack card" action={actionInviterEmploye} style={{ marginTop: "1rem" }}>
         <h2>Ajouter une personne</h2>

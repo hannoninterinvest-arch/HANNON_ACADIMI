@@ -7,6 +7,7 @@ const NAV: Record<RoleCompte, Array<{ href: string; label: string }>> = {
   ADMIN: [
     { href: "/espace/admin", label: "Vue d’ensemble" },
     { href: "/espace/admin/formations", label: "Formations" },
+    { href: "/espace/admin/comptes", label: "Comptes" },
     { href: "/espace/admin/sessions", label: "Sessions" },
     { href: "/espace/admin/tarifs", label: "Tarifs" },
     { href: "/espace/admin/commandes", label: "Commandes" },

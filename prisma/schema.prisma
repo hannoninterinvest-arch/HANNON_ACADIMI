@@ -194,6 +194,8 @@ model Cours {
   id          String   @id @default(cuid())
   titre       String
   description String?
+  horaire     String?
+  imageChemin String?
   ouvertB2c   Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -288,6 +290,7 @@ model Session {
   capaciteMax        Int                     @default(12)
   statutInscription  StatutOuvertureSession  @default(FERMEE)
   lienZoomManuel     String?
+  codeReunion        String?
   zoomMeetingId      String?
   joinUrl            String?
   hostKey            String?

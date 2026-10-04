@@ -33,6 +33,9 @@ export default async function AdminHome() {
           <h2>Métier</h2>
           <p>Formateurs : {formateurs}</p>
           <p>Apprenants : {etudiants}</p>
+          <p><Link href="/espace/admin/formations">Créer une formation, une date et un lien</Link></p>
+          <p><Link href="/espace/admin/comptes">Créer un particulier, un admin ou une organisation</Link></p>
+          <p><Link href="/espace/admin/commandes">Voir les achats</Link></p>
           <p><Link href="/espace/admin/sessions">Gérer les sessions et les liens Zoom</Link></p>
           <p><Link href="/espace/admin/tarifs">Configurer les tarifs</Link></p>
           <p><Link href="/espace/admin/demandes">Traiter les demandes</Link></p>

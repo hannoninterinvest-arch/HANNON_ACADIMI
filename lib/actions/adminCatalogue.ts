@@ -70,6 +70,8 @@ export async function actionAdminSession(form: FormData): Promise<void> {
   const fuseau = texte(form, "fuseau") || "Europe/Paris";
   const capaciteMax = entier(form, "capaciteMax");
   const formateurId = texte(form, "formateurId") || null;
+  const lienZoomManuel = texte(form, "lienZoomManuel") || null;
+  const codeReunion = texte(form, "codeReunion") || null;
   if (!coursId || !jour || !heureDebut || !heureFin || capaciteMax < 1) {
     redirect("/espace/admin/sessions?erreur=CHAMPS");
   }
@@ -94,6 +96,8 @@ export async function actionAdminSession(form: FormData): Promise<void> {
       capaciteMax,
       statutInscription: "OUVERTE",
       statut: "PLANIFIEE",
+      lienZoomManuel,
+      codeReunion,
     },
   });
   revalidatePath("/espace/admin/sessions");
@@ -104,8 +108,12 @@ export async function actionAdminSessionModifier(form: FormData): Promise<void> 
   await requireRole("ADMIN");
   const sessionId = texte(form, "sessionId");
   const lienZoomManuel = texte(form, "lienZoomManuel") || null;
+  const codeReunion = texte(form, "codeReunion") || null;
   const capaciteMax = entier(form, "capaciteMax");
   const statutInscription = texte(form, "statutInscription") as StatutOuvertureSession;
+  const jour = texte(form, "jour");
+  const heureDebut = texte(form, "heureDebut");
+  const heureFin = texte(form, "heureFin");
   const statuts: StatutOuvertureSession[] = ["OUVERTE", "FERMEE", "COMPLETE", "ANNULEE"];
   if (!sessionId || !statuts.includes(statutInscription) || capaciteMax < 1) {
     redirect("/espace/admin/sessions?erreur=CHAMPS");
@@ -115,9 +123,26 @@ export async function actionAdminSessionModifier(form: FormData): Promise<void> 
   } catch (error) {
     redirect(`/espace/admin/sessions?erreur=${encodeURIComponent(codeDepuis(error))}`);
   }
+  const session = await prisma.session.findUnique({ where: { id: sessionId } });
+  if (!session) {
+    redirect("/espace/admin/sessions?erreur=SESSION_INTROUVABLE");
+  }
+  let dateReelle = session.dateReelle;
+  let dateFin = session.dateFin;
+  if (jour && heureDebut && heureFin) {
+    try {
+      dateReelle = combinerDateHeure(jour, heureDebut, session.fuseauHoraire);
+      dateFin = combinerDateHeure(jour, heureFin, session.fuseauHoraire);
+    } catch {
+      redirect("/espace/admin/sessions?erreur=CHAMPS");
+    }
+    if (dateFin.getTime() <= dateReelle.getTime()) {
+      redirect("/espace/admin/sessions?erreur=CHAMPS");
+    }
+  }
   await prisma.session.update({
     where: { id: sessionId },
-    data: { lienZoomManuel, statutInscription },
+    data: { lienZoomManuel, codeReunion, statutInscription, dateReelle, dateFin },
   });
   revalidatePath("/espace/admin/sessions");
   redirect("/espace/admin/sessions?ok=maj");
@@ -187,4 +212,26 @@ export async function actionAdminCertificat(form: FormData): Promise<void> {
     },
   });
   redirect("/espace/admin/documents?ok=certificat");
+}
+
+export async function actionAdminSessionSupprimer(form: FormData): Promise<void> {
+  await requireRole("ADMIN");
+  const sessionId = texte(form, "sessionId");
+  if (!sessionId || form.get("confirmer") !== "on") {
+    redirect("/espace/admin/sessions?erreur=CHAMPS");
+  }
+  const payees = await prisma.commande.count({ where: { sessionId, statut: "PAYEE" } });
+  if (payees > 0) {
+    redirect("/espace/admin/sessions?erreur=SESSION_LIEE");
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.licenceZoom.updateMany({
+      where: { sessionIdEnCours: sessionId },
+      data: { sessionIdEnCours: null, statut: "LIBRE" },
+    });
+    await tx.commande.deleteMany({ where: { sessionId } });
+    await tx.session.delete({ where: { id: sessionId } });
+  });
+  revalidatePath("/espace/admin/sessions");
+  redirect("/espace/admin/sessions?ok=suppression");
 }

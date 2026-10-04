@@ -97,6 +97,30 @@ export async function actionInviterEmploye(form: FormData): Promise<void> {
   redirect(`/espace/societe/equipe?ok=${invitation.existant ? "rattachement" : "invitation"}`);
 }
 
+export async function actionCreerCompteEmploye(form: FormData): Promise<void> {
+  const user = await societeConnectee();
+  const nom = texte(form, "nom");
+  const email = texte(form, "email").toLowerCase();
+  const motDePasse = String(form.get("motDePasse") ?? "");
+  if (!nom || !email || motDePasse.length < 8 || !user.societeId) {
+    redirect("/espace/societe/equipe?erreur=CHAMPS");
+  }
+  if (await prisma.compte.findUnique({ where: { email } })) {
+    redirect("/espace/societe/equipe?erreur=EMAIL");
+  }
+  await prisma.compte.create({
+    data: {
+      nom,
+      email,
+      motDePasse: await hasherMotDePasse(motDePasse),
+      role: "EMPLOYE",
+      societeId: user.societeId,
+      appartenances: { create: { societeId: user.societeId, role: "APPRENANT" } },
+    },
+  });
+  redirect("/espace/societe/equipe?ok=employe");
+}
+
 export async function actionImporterCsv(form: FormData): Promise<void> {
   const user = await societeConnectee();
   const fichier = form.get("fichier");

@@ -15,6 +15,13 @@ const MESSAGES: Record<string, string> = {
   EMAIL: "Un compte existe déjà avec cette adresse.",
   CHAMPS: "Merci de vérifier les champs du formulaire.",
   PAIEMENT: "Le paiement n'a pas pu être ouvert.",
+  PHOTO: "La photo doit être une image jpg, png, webp ou avif de 5 Mo au plus.",
+  LIEE: "Cette formation a des achats ou des certificats. Elle ne peut pas être supprimée.",
+  SESSION_LIEE: "Cette session a des achats. Elle ne peut pas être supprimée.",
+  DERNIER_ADMIN: "Le dernier administrateur ne peut pas être supprimé.",
+  COMPTE_LIE: "Ce compte a des achats ou des affectations. Il ne peut pas être supprimé.",
+  SOCIETE_LIEE: "Cette organisation a des achats. Elle ne peut pas être supprimée.",
+  SOI: "Vous ne pouvez pas supprimer votre propre compte.",
 };
 
 export function messageErreur(code: string | undefined): string | null {

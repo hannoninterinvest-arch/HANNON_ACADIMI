@@ -2,7 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formaterCreneau, lienZoomSession } from "@/lib/format";
+import { participantsParSession } from "@/lib/participants";
 import { Banniere } from "@/app/components/Banniere";
+import { CompteARebours } from "@/app/components/CompteARebours";
+import { BoutonCopier } from "@/app/components/BoutonCopier";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +57,16 @@ export default async function EspaceApprenant({
     ...personnelles.map((commande) => ({
       id: commande.session.id,
       titre: commande.cours.titre,
+      image: commande.cours.imageChemin,
+      horaire: commande.cours.horaire,
       session: commande.session,
       origine: "Achat personnel",
     })),
     ...affectations.map((affectation) => ({
-      id: `${affectation.id}-org`,
+      id: affectation.session.id,
       titre: affectation.commande.cours.titre,
+      image: affectation.commande.cours.imageChemin,
+      horaire: affectation.commande.cours.horaire,
       session: affectation.session,
       origine: affectation.societe.nom,
     })),
@@ -68,12 +75,20 @@ export default async function EspaceApprenant({
         edt.sessions.map((session) => ({
           id: session.id,
           titre: inscription.cours.titre,
+          image: inscription.cours.imageChemin,
+          horaire: inscription.cours.horaire,
           session,
           origine: "Inscription existante",
         })),
       ),
     ),
-  ].sort((a, b) => a.session.dateReelle.getTime() - b.session.dateReelle.getTime());
+  ]
+    .filter((seance, index, liste) => liste.findIndex((autre) => autre.id === seance.id) === index)
+    .sort((a, b) => a.session.dateReelle.getTime() - b.session.dateReelle.getTime());
+  const participants = await participantsParSession(
+    seances.map((seance) => seance.session.id),
+    false,
+  );
 
   const ressources = new Map<string, { id: string; titre: string; nomFichier: string }>();
   for (const commande of personnelles) {
@@ -111,47 +126,54 @@ export default async function EspaceApprenant({
         </div>
       ) : null}
 
-      <section className="card">
-        <h2>Emploi du temps</h2>
+      <section>
+        <h2>Mes formations</h2>
         {seances.length === 0 ? (
           <p>Aucune séance à venir.</p>
         ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Quand</th>
-                  <th>Formation</th>
-                  <th>Accès</th>
-                  <th>Zoom</th>
-                </tr>
-              </thead>
-              <tbody>
-                {seances.map((seance) => {
-                  const lien = lienZoomSession(seance.session);
-                  return (
-                    <tr key={seance.id}>
-                      <td>{formaterCreneau(seance.session.dateReelle, seance.session.fuseauHoraire)}</td>
-                      <td>
-                        {seance.titre}
-                        <br />
-                        <span className="muted">{seance.origine}</span>
-                      </td>
-                      <td>{seance.session.fuseauHoraire}</td>
-                      <td>
-                        {lien ? (
-                          <a className="btn zoom-cta" href={lien} target="_blank" rel="noreferrer">
-                            Rejoindre la formation sur Zoom
-                          </a>
-                        ) : (
-                          <span className="muted">Le lien Zoom n’est pas encore renseigné. Il apparaîtra ici dès qu’il sera ajouté.</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="live-grid">
+            {seances.map((seance) => {
+              const lien = lienZoomSession(seance.session);
+              const presents = participants.get(seance.session.id) ?? [];
+              return (
+                <article className="live-card" key={seance.id}>
+                  {seance.image ? <img src={seance.image} alt="" /> : null}
+                  <div>
+                    <p className="upcoming-meta">
+                      <span>{seance.origine}</span>
+                      <span>{seance.session.fuseauHoraire}</span>
+                    </p>
+                    <h3>{seance.titre}</h3>
+                    <p>{formaterCreneau(seance.session.dateReelle, seance.session.fuseauHoraire)}</p>
+                    {seance.horaire ? <p className="muted">{seance.horaire}</p> : null}
+                    <CompteARebours
+                      debutIso={seance.session.dateReelle.toISOString()}
+                      finIso={seance.session.dateFin ? seance.session.dateFin.toISOString() : null}
+                    />
+                    <div className="actions">
+                      {lien ? (
+                        <a className="btn zoom-cta" href={lien} target="_blank" rel="noreferrer">
+                          Rejoindre sur Zoom
+                        </a>
+                      ) : (
+                        <span className="muted">Le lien Zoom n’est pas encore renseigné.</span>
+                      )}
+                      {seance.session.codeReunion ? <BoutonCopier valeur={seance.session.codeReunion} /> : null}
+                    </div>
+                    <h4>Participants</h4>
+                    {presents.length === 0 ? (
+                      <p className="muted">Vous êtes le premier inscrit visible.</p>
+                    ) : (
+                      <ul className="plain">
+                        {presents.map((personne) => (
+                          <li key={personne.id}>{personne.nom}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
