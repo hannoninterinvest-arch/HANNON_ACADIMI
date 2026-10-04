@@ -75,6 +75,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
                   <span>{date ? `${date.jour} ${date.mois} · ${date.heure}` : "Sur demande"}</span>
                 </div>
                 <h2>{item.titre}</h2>
+                <p className="tag">Groupe dès {item.effectifMinimal} participant{item.effectifMinimal > 1 ? "s" : ""}</p>
                 <p className="muted">{session?.formateur?.nom ?? "Formateur annoncé avant la session"}</p>
                 <p className="muted">{item.description}</p>
                 <p className="price">{item.tarif ? formatEuros(item.tarif.prixB2cCentimes) : "Tarif non publié"}</p>

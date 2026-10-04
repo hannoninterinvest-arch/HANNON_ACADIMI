@@ -139,7 +139,7 @@ export default async function HomePage() {
                       <p className="muted">{formaterCreneau(session.dateReelle, session.fuseauHoraire)}</p>
                       {coursId ? (
                         <Link className="btn" href={`/formations/${coursId}`}>
-                          Choisir cette session
+                          Voir la formation
                         </Link>
                       ) : null}
                     </div>

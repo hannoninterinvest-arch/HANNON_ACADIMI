@@ -6,6 +6,8 @@ import { participantsParSession } from "@/lib/participants";
 import { Banniere } from "@/app/components/Banniere";
 import { CompteARebours } from "@/app/components/CompteARebours";
 import { BoutonCopier } from "@/app/components/BoutonCopier";
+import { libelleCandidature } from "@/lib/groupes";
+import { actionPayerGroupe } from "@/lib/actions/groupes";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +17,7 @@ export default async function EspaceApprenant({
   searchParams: { ok?: string; erreur?: string };
 }) {
   const user = await requireRole("ETUDIANT_B2C", "EMPLOYE", "SOCIETE");
-  const [personnelles, affectations, certificats, historiques] = await Promise.all([
+  const [personnelles, affectations, certificats, historiques, candidatures] = await Promise.all([
     prisma.commande.findMany({
       where: { compteId: user.id, statut: "PAYEE", typeAcheteur: "PARTICULIER" },
       include: { cours: { include: { ressources: true } }, session: true },
@@ -51,6 +53,11 @@ export default async function EspaceApprenant({
           },
         })
       : Promise.resolve([]),
+    prisma.candidature.findMany({
+      where: { compteId: user.id, statut: { notIn: ["ANNULEE", "PAYEE"] } },
+      include: { cours: true, groupe: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const seances = [
@@ -107,7 +114,7 @@ export default async function EspaceApprenant({
     }
   }
 
-  const vide = seances.length === 0 && certificats.length === 0;
+  const vide = seances.length === 0 && certificats.length === 0 && candidatures.length === 0;
 
   return (
     <>
@@ -119,11 +126,38 @@ export default async function EspaceApprenant({
       ) : null}
       {vide ? (
         <div className="empty">
-          <p>Vous n’avez pas encore de formation. Achetez une place ou attendez l’affectation de votre organisation.</p>
+          <p>Vous n’avez pas encore de formation. Déposez une demande depuis le catalogue.</p>
           <Link className="btn" href="/catalogue">
             Voir le catalogue
           </Link>
         </div>
+      ) : null}
+
+      {candidatures.length > 0 ? (
+        <section>
+          <h2>Mes demandes</h2>
+          <div className="grid">
+            {candidatures.map((candidature) => (
+              <article className="card" key={candidature.id}>
+                <h3>{candidature.cours.titre}</h3>
+                <p className="tag">{libelleCandidature(candidature.statut)}</p>
+                {candidature.groupe?.dateDebut ? (
+                  <p>{formaterCreneau(candidature.groupe.dateDebut, "Europe/Paris")}</p>
+                ) : (
+                  <p className="muted">Nous vous contactons. Le paiement s’ouvre quand le groupe atteint le minimum.</p>
+                )}
+                {candidature.groupe?.horaire ? <p className="muted">{candidature.groupe.horaire}</p> : null}
+                {candidature.statut === "DANS_GROUPE" && candidature.groupe?.paiementOuvert ? (
+                  <form action={actionPayerGroupe}>
+                    <input type="hidden" name="candidatureId" value={candidature.id} />
+                    <button type="submit">Payer en ligne</button>
+                  </form>
+                ) : null}
+                <Link href={`/formations/${candidature.coursId}`}>Voir la fiche</Link>
+              </article>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section>

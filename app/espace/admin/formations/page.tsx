@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { DateTime } from "luxon";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -40,8 +41,8 @@ export default async function AdminFormations({
     <>
       <h1>Formations</h1>
       <p className="lead">
-        Publiez l’affiche, le domaine, le formateur, les détails et la session en ligne. Le catalogue reste vide
-        tant que vous n’en publiez pas.
+        Publiez l’affiche, le domaine et le minimum de participants. Les groupes, les dates et les liens Zoom se règlent
+        ensuite. Le catalogue reste vide tant que vous n’en publiez pas.
       </p>
       <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
       <form className="stack card" action={actionAdminFormationComplet}>
@@ -72,27 +73,14 @@ export default async function AdminFormations({
           <textarea name="description" rows={3} placeholder="Objectifs, public, déroulé de la classe en ligne…" />
         </label>
         <label>
-          Emploi du temps
-          <input name="horaire" placeholder="Tous les lundis, 18h–20h" />
+          Rythme annoncé
+          <input name="horaire" placeholder="Les mardis, en fin de journée" />
         </label>
-        <div className="form-row">
-          <label>
-            Date de début
-            <input type="date" name="jour" required />
-          </label>
-          <label>
-            Heure de début
-            <input type="time" name="heureDebut" required defaultValue="09:00" />
-          </label>
-          <label>
-            Heure de fin
-            <input type="time" name="heureFin" required defaultValue="12:00" />
-          </label>
-        </div>
         <label>
-          Capacité
-          <input type="number" name="capaciteMax" min={1} defaultValue={20} required />
+          Nombre minimal pour ouvrir un groupe
+          <input type="number" name="effectifMinimal" min={1} max={500} defaultValue={6} required />
         </label>
+        <p className="muted">La date, l’horaire exact et le lien Zoom se règlent ensuite, groupe par groupe.</p>
         <div className="form-row">
           <label>
             Prix particulier (€)
@@ -103,14 +91,6 @@ export default async function AdminFormations({
             <input name="prixOrganisation" inputMode="decimal" placeholder="90" />
           </label>
         </div>
-        <label>
-          Lien Zoom
-          <input name="lienZoomManuel" placeholder="https://zoom.us/j/…" />
-        </label>
-        <label>
-          Code de réunion
-          <input name="codeReunion" placeholder="123 456 7890" />
-        </label>
         <label>
           Photo de la bibliothèque
           <select name="visuel" defaultValue="">
@@ -171,9 +151,16 @@ export default async function AdminFormations({
                     <textarea name="description" rows={2} defaultValue={item.description ?? ""} />
                   </label>
                   <label>
-                    Emploi du temps
+                    Rythme annoncé
                     <input name="horaire" defaultValue={item.horaire ?? ""} />
                   </label>
+                  <label>
+                    Minimum pour un groupe
+                    <input type="number" name="effectifMinimal" min={1} max={500} defaultValue={item.effectifMinimal} required />
+                  </label>
+                  <p>
+                    <Link href={`/espace/admin/formations/${item.id}`}>Groupes, participants et lien Zoom</Link>
+                  </p>
                   {session ? (
                     <div className="form-row">
                       <label>

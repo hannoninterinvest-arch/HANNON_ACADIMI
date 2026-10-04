@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PrismaCommerceStore } from "@/lib/commerce/prismaStore";
+import { synchroniserCandidatureApresRemboursement, synchroniserCandidaturePayee } from "@/lib/groupesSuivi";
 import {
   annulerCommande,
   confirmerPaiement,
@@ -36,7 +37,11 @@ export async function traiterEvenementPaiement(
   }
 
   if (evenement.type === "paiement.reussi") {
-    return confirmerPaiement(store, commande.id, evenement.reference, maintenant);
+    const resultat = await confirmerPaiement(store, commande.id, evenement.reference, maintenant);
+    if (resultat.ok) {
+      await synchroniserCandidaturePayee(commande.compteId, commande.sessionId);
+    }
+    return resultat;
   }
   if (evenement.type === "paiement.echoue") {
     return echouerPaiement(store, commande.id);
@@ -44,7 +49,11 @@ export async function traiterEvenementPaiement(
   if (evenement.type === "paiement.annule") {
     return annulerCommande(store, commande.id);
   }
-  return rembourserCommande(store, commande.id);
+  const remboursement = await rembourserCommande(store, commande.id);
+  if (remboursement.ok) {
+    await synchroniserCandidatureApresRemboursement(commande.compteId, commande.sessionId);
+  }
+  return remboursement;
 }
 
 export function evenementDepuisCorpsHannon(corps: string): EvenementPaiement {

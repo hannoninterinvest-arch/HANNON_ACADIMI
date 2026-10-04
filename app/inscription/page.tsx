@@ -4,7 +4,7 @@ import { ChampsProfil } from "@/app/components/ChampsProfil";
 export default function InscriptionPage({
   searchParams,
 }: {
-  searchParams: { erreur?: string };
+  searchParams: { erreur?: string; next?: string };
 }) {
   return (
     <main className="inscription">
@@ -19,6 +19,7 @@ export default function InscriptionPage({
         </aside>
         <form className="stack card" action={actionInscriptionB2c}>
           <h2>Vos informations</h2>
+          {searchParams.next?.startsWith("/formations/") ? <input type="hidden" name="next" value={searchParams.next} /> : null}
           {searchParams.erreur === "email" ? <p className="missing">Cet e-mail a déjà un compte.</p> : null}
           {searchParams.erreur === "champs" ? (
             <p className="missing">

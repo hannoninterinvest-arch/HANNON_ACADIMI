@@ -129,6 +129,20 @@ export async function ouvrirCommande(input: {
   if (!cours) {
     throw new Error("COURS_INTROUVABLE");
   }
+  const groupe = await prisma.groupe.findUnique({ where: { sessionId: session.id } });
+  if (groupe) {
+    const retenu = await prisma.candidature.findFirst({
+      where: {
+        groupeId: groupe.id,
+        compteId: input.compteId,
+        statut: { in: ["DANS_GROUPE", "PAYEE"] },
+      },
+    });
+    if (!groupe.paiementOuvert || !retenu || retenu.statut === "PAYEE" || input.profil !== "B2C") {
+      const code = retenu?.statut === "PAYEE" ? "DEJA_PAYE" : "PAIEMENT_FERME";
+      throw Object.assign(new Error(code), { code });
+    }
+  }
   const devis = await devisSession(input);
   const typeAcheteur = input.profil === "B2C" ? "PARTICULIER" : "ORGANISATION";
   const commande = await reserverPlaces(

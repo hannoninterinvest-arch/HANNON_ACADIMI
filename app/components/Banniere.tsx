@@ -17,6 +17,11 @@ const OK: Record<string, string> = {
   societe: "Organisation créée.",
   employe: "Compte collaborateur créé.",
   suppression: "Élément supprimé.",
+  candidature: "Votre demande a bien été reçue. Notre équipe vous contactera. Le paiement s’ouvrira quand le groupe atteindra le nombre minimal.",
+  groupe: "Groupe enregistré.",
+  paiement: "Le paiement du groupe est ouvert.",
+  especes: "Paiement en espèces confirmé.",
+  contact: "La personne est marquée comme contactée.",
 };
 
 export function Banniere({

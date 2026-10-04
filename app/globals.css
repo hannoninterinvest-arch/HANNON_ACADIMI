@@ -1066,6 +1066,21 @@ main.inscription h1 {
   max-width: 28rem;
 }
 
+.personne-ligne {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.personne-ligne p { margin: 0.15rem 0 0; }
+.etapes-demande { margin: 0.4rem 0 0.8rem; padding-left: 1.15rem; }
+.etapes-demande li { margin: 0.28rem 0; }
+fieldset { border: 1px solid var(--line); border-radius: 16px; padding: 0.8rem 1rem; }
+fieldset legend { padding: 0 0.35rem; font-weight: 700; }
+.demande-carte .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
 .vignette {
   width: 36px;
   height: 36px;

@@ -3,10 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { lireSession } from "@/lib/auth";
 import { formatEuros, formaterCreneau } from "@/lib/format";
-import { disponibilitesSessions, devisSession } from "@/lib/commerce/service";
+import { libelleCandidature } from "@/lib/groupes";
 import { Banniere } from "@/app/components/Banniere";
-import { FormulaireAchat } from "@/app/components/FormulaireAchat";
-import { actionCalculerDevis, actionCreerCommande } from "@/lib/actions/commerce";
+import { actionCandidature, actionPayerGroupe } from "@/lib/actions/groupes";
 
 export const dynamic = "force-dynamic";
 
@@ -23,53 +22,41 @@ export default async function FormationPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { erreur?: string };
+  searchParams: { erreur?: string; ok?: string };
 }) {
   const cours = await prisma.cours.findUnique({
     where: { id: params.id },
-    include: { tarif: { include: { regles: { where: { actif: true } } } } },
+    include: {
+      tarif: { include: { regles: { where: { actif: true } } } },
+      groupes: { include: { formateur: true }, orderBy: { createdAt: "asc" } },
+    },
   });
   if (!cours) {
     notFound();
   }
-  const sessions = await prisma.session.findMany({
-    where: {
-      statutInscription: "OUVERTE",
-      OR: [{ coursId: cours.id }, { emploiDuTemps: { coursId: cours.id } }],
-    },
-    include: { formateur: true },
-    orderBy: { dateReelle: "asc" },
-  });
-  const stocks = await disponibilitesSessions(sessions.map((session) => session.id));
   const sessionUtilisateur = await lireSession();
-  const profil =
-    sessionUtilisateur?.role === "SOCIETE"
-      ? (
-          await prisma.societe.findUnique({ where: { id: sessionUtilisateur.societeId ?? "" } })
-        )?.type === "ORGANISME_PUBLIC"
-        ? "B2G"
-        : "B2B"
-      : "B2C";
-  const peutAcheter =
-    sessionUtilisateur?.role === "ETUDIANT_B2C" ||
-    sessionUtilisateur?.role === "EMPLOYE" ||
-    sessionUtilisateur?.role === "SOCIETE";
-  const devisParSession = new Map<string, Awaited<ReturnType<typeof devisSession>>>();
-  if (cours.tarif && peutAcheter) {
-    await Promise.all(
-      sessions.map(async (session) => {
-        try {
-          devisParSession.set(
-            session.id,
-            await devisSession({ sessionId: session.id, profil, quantite: 1 }),
-          );
-        } catch {
-          // Le formulaire reste masqué si le tarif de la session est illisible.
-        }
-      }),
-    );
-  }
-  const formateur = sessions.find((session) => session.formateur)?.formateur ?? null;
+  const [candidature, demandes, sessionFormateur] = await Promise.all([
+    sessionUtilisateur
+      ? prisma.candidature.findUnique({
+          where: { coursId_compteId: { coursId: cours.id, compteId: sessionUtilisateur.id } },
+          include: { groupe: true },
+        })
+      : Promise.resolve(null),
+    prisma.candidature.count({ where: { coursId: cours.id, statut: { not: "ANNULEE" } } }),
+    prisma.session.findFirst({
+      where: {
+        formateurId: { not: null },
+        OR: [{ coursId: cours.id }, { emploiDuTemps: { coursId: cours.id } }],
+      },
+      include: { formateur: true },
+      orderBy: { dateReelle: "asc" },
+    }),
+  ]);
+  const formateur = cours.groupes.find((groupe) => groupe.formateur)?.formateur ?? sessionFormateur?.formateur ?? null;
+  const peutDemander = sessionUtilisateur?.role === "ETUDIANT_B2C" || sessionUtilisateur?.role === "EMPLOYE";
+  const paiementOuvert = Boolean(
+    candidature?.statut === "DANS_GROUPE" && candidature.groupe?.paiementOuvert && candidature.groupe.sessionId,
+  );
 
   return (
     <main className="fiche">
@@ -95,7 +82,7 @@ export default async function FormationPage({
             </div>
           </div>
           <h1>{cours.titre}</h1>
-          <p className="lead">{cours.description || "Classe en direct, sur une session datée, avec un nombre de places tenu."}</p>
+          <p className="lead">{cours.description || "Classe en direct. Vous déposez votre demande, puis le groupe se constitue."}</p>
           <ul className="fiche-details">
             <li>
               <span>Domaine</span>
@@ -103,94 +90,97 @@ export default async function FormationPage({
             </li>
             <li>
               <span>Horaire</span>
-              <strong>{cours.horaire || "Voir la session"}</strong>
+              <strong>{cours.horaire || "Fixé avec le groupe"}</strong>
             </li>
             <li>
-              <span>Format</span>
-              <strong>Classe en ligne</strong>
+              <span>Groupe dès</span>
+              <strong>
+                {cours.effectifMinimal} participant{cours.effectifMinimal > 1 ? "s" : ""}
+              </strong>
             </li>
           </ul>
+          {cours.groupes.some((groupe) => groupe.dateDebut) ? (
+            <section>
+              <h2>Groupes</h2>
+              {cours.groupes
+                .filter((groupe) => groupe.dateDebut)
+                .map((groupe) => (
+                  <p key={groupe.id}>
+                    <strong>{groupe.nom}</strong>
+                    {groupe.dateDebut ? ` · ${formaterCreneau(groupe.dateDebut, "Europe/Paris")}` : ""}
+                    {groupe.horaire ? ` · ${groupe.horaire}` : ""}
+                    {groupe.formateur ? ` · ${groupe.formateur.nom}` : ""}
+                  </p>
+                ))}
+            </section>
+          ) : null}
         </article>
 
         <aside className="fiche-achat">
-          <Banniere erreur={searchParams.erreur} />
-          <section className="card">
-            <h2>Tarifs</h2>
+          <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
+          <section className="card demande-carte">
+            <h2>Rejoindre cette formation</h2>
+            <p>
+              {demandes} demande{demandes > 1 ? "s" : ""}. Un nouveau groupe s’ouvre à partir de {cours.effectifMinimal}{" "}
+              participant{cours.effectifMinimal > 1 ? "s" : ""}.
+            </p>
+            <ol className="etapes-demande">
+              <li>Vous remplissez le formulaire.</li>
+              <li>Nous vous contactons.</li>
+              <li>Le paiement s’ouvre quand le groupe atteint le minimum.</li>
+              <li>Le paiement en ligne est confirmé automatiquement. Les espèces sont confirmées par l’équipe.</li>
+            </ol>
             {cours.tarif ? (
-              <>
-                <p>
-                  Particulier : <strong>{formatEuros(cours.tarif.prixB2cCentimes)}</strong>
-                </p>
-                <p>
-                  Organisation, prix de base par place :{" "}
-                  <strong>{formatEuros(cours.tarif.prixOrganisationCentimes)}</strong>
-                </p>
-                {cours.tarif.regles.length === 0 ? (
-                  <p className="muted">Aucune remise n’est configurée.</p>
-                ) : (
-                  cours.tarif.regles.map((regle) => (
-                    <p key={regle.id}>
-                      Dès {regle.seuilQuantite} places ({regle.profils.join(", ")}), remise{" "}
-                      {regle.typeRemise === "POURCENTAGE" ? `${regle.valeur} %` : formatEuros(regle.valeur)} sur toutes
-                      les places. Acheter moins de places reste possible, au tarif de base.
-                    </p>
-                  ))
-                )}
-              </>
+              <p>
+                Tarif particulier : <strong>{formatEuros(cours.tarif.prixB2cCentimes)}</strong>
+              </p>
             ) : (
-              <p>Le tarif de cette formation n’est pas encore publié.</p>
+              <p className="muted">Le tarif sera communiqué avec l’ouverture du paiement.</p>
             )}
+            {candidature && candidature.statut !== "ANNULEE" ? (
+              <p className="tag">{libelleCandidature(candidature.statut)}</p>
+            ) : null}
+            {paiementOuvert && candidature ? (
+              <form action={actionPayerGroupe}>
+                <input type="hidden" name="candidatureId" value={candidature.id} />
+                <button type="submit">Payer en ligne</button>
+                <p className="muted">Si vous payez en espèces, l’équipe confirmera votre place.</p>
+              </form>
+            ) : null}
+            {candidature?.statut === "PAYEE" ? (
+              <p>
+                <Link className="btn" href="/espace/etudiant">
+                  Voir ma formation
+                </Link>
+              </p>
+            ) : null}
+            {!sessionUtilisateur ? (
+              <div className="actions">
+                <Link className="btn" href={`/inscription?next=/formations/${cours.id}`}>
+                  Créer mon compte
+                </Link>
+                <Link className="btn-secondary" href={`/connexion?next=/formations/${cours.id}`}>
+                  J’ai déjà un compte
+                </Link>
+              </div>
+            ) : null}
+            {peutDemander && (!candidature || candidature.statut === "ANNULEE") ? (
+              <form className="stack" action={actionCandidature}>
+                <input type="hidden" name="coursId" value={cours.id} />
+                <p>
+                  <strong>{sessionUtilisateur?.nom}</strong>
+                </p>
+                <label>
+                  Message pour l’équipe
+                  <textarea name="message" rows={3} placeholder="Vos disponibilités, une question…" />
+                </label>
+                <button type="submit">Envoyer ma demande</button>
+              </form>
+            ) : null}
+            {sessionUtilisateur && !peutDemander && !candidature ? (
+              <p className="muted">Le formulaire est réservé aux particuliers.</p>
+            ) : null}
           </section>
-
-          {sessions.length === 0 ? (
-            <div className="empty">
-              <p>Aucune session n’est ouverte à l’inscription.</p>
-              <Link className="btn" href="/demande">
-                Demander cette formation
-              </Link>
-            </div>
-          ) : (
-            sessions.map((session) => {
-              const stock = stocks.get(session.id);
-              const devis = devisParSession.get(session.id) ?? null;
-              return (
-                <article className="card" key={session.id}>
-                  <h2>{formaterCreneau(session.dateReelle, session.fuseauHoraire)}</h2>
-                  <p>
-                    {session.formateur ? session.formateur.nom : "Formateur à confirmer"}
-                    {session.dateFin ? ` · fin ${formaterCreneau(session.dateFin, session.fuseauHoraire)}` : ""}
-                  </p>
-                  <p>
-                    <span className={stock && stock.disponibles > 0 ? "badge ok" : "badge warn"}>
-                      {stock?.disponibles ?? 0} place(s) disponible(s)
-                    </span>{" "}
-                    sur {stock?.capaciteMax ?? session.capaciteMax}.
-                  </p>
-                  {!sessionUtilisateur ? (
-                    <p>
-                      <Link className="btn" href={`/connexion?next=/formations/${cours.id}`}>
-                        Se connecter pour s’inscrire
-                      </Link>
-                    </p>
-                  ) : null}
-                  {peutAcheter && devis ? (
-                    <FormulaireAchat
-                      sessionId={session.id}
-                      retour={`/formations/${cours.id}`}
-                      profil={profil}
-                      places={stock?.disponibles ?? 0}
-                      devisInitial={devis}
-                      calculer={actionCalculerDevis}
-                      acheter={actionCreerCommande}
-                    />
-                  ) : null}
-                  {sessionUtilisateur && !peutAcheter ? (
-                    <p className="muted">Ce profil ne peut pas acheter une place depuis le catalogue.</p>
-                  ) : null}
-                </article>
-              );
-            })
-          )}
         </aside>
       </div>
     </main>

@@ -15,6 +15,17 @@ function texte(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
 }
 
+function effectifDepuis(valeur: string): number {
+  if (!valeur) {
+    return 1;
+  }
+  const nombre = Number.parseInt(valeur, 10);
+  if (!Number.isInteger(nombre) || nombre < 1 || nombre > 500) {
+    throw new Error("CHAMPS");
+  }
+  return nombre;
+}
+
 async function photoDepuisFormulaire(form: FormData): Promise<string | null | undefined> {
   const fichier = form.get("photo");
   if (fichier instanceof File && fichier.size > 0) {
@@ -90,6 +101,7 @@ export async function actionAdminFormationComplet(form: FormData): Promise<void>
         description: texte(form, "description") || null,
         horaire: texte(form, "horaire") || null,
         imageChemin: imageChemin ?? null,
+        effectifMinimal: effectifDepuis(texte(form, "effectifMinimal")),
         ouvertB2c: true,
       },
     });
@@ -146,6 +158,7 @@ export async function actionAdminFormationModifier(form: FormData): Promise<void
         description: texte(form, "description") || null,
         horaire: texte(form, "horaire") || null,
         imageChemin,
+        effectifMinimal: effectifDepuis(texte(form, "effectifMinimal")),
       },
     });
     const sessionId = texte(form, "sessionId");

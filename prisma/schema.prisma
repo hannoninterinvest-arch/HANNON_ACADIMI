@@ -94,6 +94,14 @@ enum StatutDemande {
   CLOTUREE
 }
 
+enum StatutCandidature {
+  EN_ATTENTE
+  CONTACTE
+  DANS_GROUPE
+  PAYEE
+  ANNULEE
+}
+
 model Compte {
   id          String     @id @default(cuid())
   email       String     @unique
@@ -112,6 +120,7 @@ model Compte {
   commandes    Commande[]
   affectations Affectation[]
   certificats  Certificat[]
+  candidatures Candidature[]
 
   @@index([role])
   @@index([societeId])
@@ -190,6 +199,7 @@ model Formateur {
   emploisDuTemps   EmploiDuTemps[]
   compte           Compte?
   sessionsAnimees  Session[]       @relation("SessionFormateur")
+  groupesAnimes    Groupe[]
 }
 
 model Cours {
@@ -197,10 +207,11 @@ model Cours {
   titre       String
   domaine     String?
   description String?
-  horaire     String?
-  imageChemin String?
-  ouvertB2c   Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  horaire          String?
+  imageChemin      String?
+  ouvertB2c        Boolean  @default(true)
+  effectifMinimal  Int      @default(1)
+  createdAt        DateTime @default(now())
 
   emploisDuTemps       EmploiDuTemps[]
   inscriptions         Inscription[]
@@ -211,6 +222,8 @@ model Cours {
   demandes             DemandeFormation[]
   ressources           RessourceCours[]
   certificats          Certificat[]
+  groupes              Groupe[]
+  candidatures         Candidature[]
 }
 
 model TarifFormation {
@@ -317,6 +330,7 @@ model Session {
   reservations     ReservationPlaces[]
   affectations     Affectation[]
   certificats      Certificat[]
+  groupe           Groupe?
 
   @@unique([emploiDuTempsId, dateReelle])
   @@index([statut])
@@ -411,6 +425,47 @@ model Affectation {
   @@unique([sessionId, compteId])
   @@index([commandeId])
   @@index([societeId, sessionId])
+}
+
+model Groupe {
+  id               String    @id @default(cuid())
+  coursId          String
+  nom              String
+  effectifMinimal  Int
+  horaire          String?
+  dateDebut        DateTime?
+  dateFin          DateTime?
+  lienZoom         String?
+  codeReunion      String?
+  formateurId      String?
+  sessionId        String?   @unique
+  paiementOuvert   Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  cours        Cours         @relation(fields: [coursId], references: [id], onDelete: Cascade)
+  formateur    Formateur?    @relation(fields: [formateurId], references: [id], onDelete: SetNull)
+  session      Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  candidatures Candidature[]
+
+  @@index([coursId])
+}
+
+model Candidature {
+  id        String             @id @default(cuid())
+  coursId   String
+  compteId  String
+  message   String?
+  statut    StatutCandidature  @default(EN_ATTENTE)
+  groupeId  String?
+  createdAt DateTime           @default(now())
+
+  cours   Cours   @relation(fields: [coursId], references: [id], onDelete: Cascade)
+  compte  Compte  @relation(fields: [compteId], references: [id], onDelete: Cascade)
+  groupe  Groupe? @relation(fields: [groupeId], references: [id], onDelete: SetNull)
+
+  @@unique([coursId, compteId])
+  @@index([groupeId])
+  @@index([compteId])
 }
 
 model DemandeFormation {

@@ -22,6 +22,13 @@ const MESSAGES: Record<string, string> = {
   COMPTE_LIE: "Ce compte a des achats ou des affectations. Il ne peut pas être supprimé.",
   SOCIETE_LIEE: "Cette organisation a des achats. Elle ne peut pas être supprimée.",
   SOI: "Vous ne pouvez pas supprimer votre propre compte.",
+  CANDIDATURE: "Vous avez déjà déposé une demande pour cette formation.",
+  MINIMUM: "Le nombre minimal de participants n’est pas encore atteint.",
+  PAIEMENT_FERME: "Le paiement de ce groupe n’est pas encore ouvert pour vous.",
+  DEJA_PAYE: "Cette place est déjà confirmée.",
+  DEJA_GROUPE: "Cette personne est déjà dans un autre groupe.",
+  DATE: "Indiquez la date et les heures du groupe avant d’ouvrir le paiement.",
+  GROUPE_LIE: "Ce groupe a des places confirmées. Il ne peut pas être supprimé.",
 };
 
 export function messageErreur(code: string | undefined): string | null {

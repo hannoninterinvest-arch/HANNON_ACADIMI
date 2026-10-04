@@ -103,6 +103,10 @@ export async function actionInscriptionB2c(form: FormData): Promise<void> {
     },
   });
   await creerCookieSession(sessionDepuisCompte(compte));
+  const suivant = texte(form, "next");
+  if (suivant.startsWith("/formations/") && !suivant.includes("://")) {
+    redirect(suivant);
+  }
   redirect("/espace/etudiant");
 }
 
