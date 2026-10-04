@@ -7,8 +7,8 @@ export default function InscriptionPage({
 }) {
   return (
     <main>
-      <h1>Compte étudiant (B2C)</h1>
-      <p className="lead">Créez votre compte et inscrivez-vous à une ou plusieurs formations.</p>
+      <h1>Compte particulier</h1>
+      <p className="lead">Créez votre compte, achetez une place et retrouvez vos sessions dans votre espace.</p>
       {searchParams.erreur === "email" ? (
         <p className="missing">Cet e-mail a déjà un compte.</p>
       ) : null}

@@ -18,7 +18,10 @@ export default async function AdminFormations({
   return (
     <>
       <h1>Formations</h1>
-      {searchParams.ok ? <p className="ok">Formation créée.</p> : null}
+      <p className="lead">
+        Après la création, définissez le tarif et ouvrez une session datée.
+      </p>
+      {searchParams.ok ? <p className="alert ok">Formation créée.</p> : null}
       <form className="stack card" action={actionAdminFormation}>
         <h2>Nouvelle formation</h2>
         <label>

@@ -46,6 +46,10 @@ export async function actionConnexion(form: FormData): Promise<void> {
     redirect("/connexion?erreur=identifiants");
   }
   await creerCookieSession(sessionDepuisCompte(compte));
+  const suivant = texte(form, "next");
+  if (suivant.startsWith("/") && !suivant.startsWith("//")) {
+    redirect(suivant);
+  }
   redirect(cheminEspace(compte.role));
 }
 
@@ -87,7 +91,10 @@ export async function actionInscriptionSociete(form: FormData): Promise<void> {
   const nom = texte(form, "nom");
   const nomSociete = texte(form, "nomSociete");
   const email = texte(form, "email").toLowerCase();
+  const telephone = texte(form, "telephone") || null;
   const motDePasse = String(form.get("motDePasse") ?? "");
+  const typeDemande = texte(form, "typeOrganisation");
+  const type = typeDemande === "ORGANISME_PUBLIC" ? "ORGANISME_PUBLIC" : "ENTREPRISE";
   if (!nom || !nomSociete || !email || motDePasse.length < 8) {
     redirect("/inscription-societe?erreur=champs");
   }
@@ -95,7 +102,7 @@ export async function actionInscriptionSociete(form: FormData): Promise<void> {
     redirect("/inscription-societe?erreur=email");
   }
   const societe = await prisma.societe.create({
-    data: { nom: nomSociete, email },
+    data: { nom: nomSociete, email, telephone, type },
   });
   const compte = await prisma.compte.create({
     data: {
@@ -104,6 +111,7 @@ export async function actionInscriptionSociete(form: FormData): Promise<void> {
       motDePasse: await hasherMotDePasse(motDePasse),
       role: RoleCompte.SOCIETE,
       societeId: societe.id,
+      appartenances: { create: { societeId: societe.id, role: "RESPONSABLE" } },
     },
   });
   await creerCookieSession(sessionDepuisCompte(compte));
@@ -196,92 +204,19 @@ export async function actionAdminLicenceZoom(form: FormData): Promise<void> {
   redirect("/espace/admin/zoom?ok=1");
 }
 
-export async function actionEtudiantInscription(form: FormData): Promise<void> {
-  const user = await requireRole("ETUDIANT_B2C");
-  const coursId = texte(form, "coursId");
-  if (!user.etudiantId || !coursId) {
-    redirect("/espace/etudiant?erreur=champs");
-  }
-  await prisma.inscription.createMany({
-    data: [{ etudiantId: user.etudiantId, coursId }],
-    skipDuplicates: true,
-  });
-  revalidatePath("/espace/etudiant");
-  redirect("/espace/etudiant?ok=1");
+export async function actionEtudiantInscription(): Promise<void> {
+  await requireRole("ETUDIANT_B2C");
+  redirect("/catalogue");
 }
 
-export async function actionSocieteAchat(form: FormData): Promise<void> {
-  const user = await requireRole("SOCIETE");
-  if (!user.societeId) {
-    redirect("/espace/societe?erreur=societe");
-  }
-  const coursId = texte(form, "coursId");
-  const nbPlaces = Number.parseInt(texte(form, "nbPlaces") || "0", 10);
-  if (!coursId || nbPlaces < 1) {
-    redirect("/espace/societe?erreur=champs");
-  }
-  await prisma.achatPlaces.create({
-    data: { societeId: user.societeId, coursId, nbPlaces },
-  });
-  revalidatePath("/espace/societe");
-  redirect("/espace/societe?ok=achat");
+export async function actionSocieteAchat(): Promise<void> {
+  await requireRole("SOCIETE");
+  redirect("/catalogue");
 }
 
-export async function actionSocieteEmploye(form: FormData): Promise<void> {
-  const user = await requireRole("SOCIETE");
-  if (!user.societeId) {
-    redirect("/espace/societe?erreur=societe");
-  }
-  const nom = texte(form, "nom");
-  const email = texte(form, "email").toLowerCase();
-  const coursId = texte(form, "coursId");
-  const motDePasse = String(form.get("motDePasse") ?? "Hannon2026!");
-  if (!nom || !email || !coursId) {
-    redirect("/espace/societe?erreur=champs");
-  }
-
-  const achats = await prisma.achatPlaces.aggregate({
-    where: { societeId: user.societeId, coursId },
-    _sum: { nbPlaces: true },
-  });
-  const capacite = achats._sum.nbPlaces ?? 0;
-  const employes = await prisma.compte.findMany({
-    where: { societeId: user.societeId, role: "EMPLOYE", etudiantId: { not: null } },
-    select: { etudiantId: true },
-  });
-  const etudiantIds = employes
-    .map((c) => c.etudiantId)
-    .filter((id): id is string => Boolean(id));
-  const utilisees = await prisma.inscription.count({
-    where: { coursId, etudiantId: { in: etudiantIds } },
-  });
-  if (utilisees >= capacite) {
-    redirect("/espace/societe?erreur=places");
-  }
-
-  const etudiant = await prisma.etudiant.upsert({
-    where: { email },
-    update: { nom },
-    create: { nom, email },
-  });
-  await prisma.compte.upsert({
-    where: { email },
-    update: { nom, role: "EMPLOYE", societeId: user.societeId, etudiantId: etudiant.id },
-    create: {
-      nom,
-      email,
-      motDePasse: await hasherMotDePasse(motDePasse),
-      role: "EMPLOYE",
-      societeId: user.societeId,
-      etudiantId: etudiant.id,
-    },
-  });
-  await prisma.inscription.createMany({
-    data: [{ etudiantId: etudiant.id, coursId }],
-    skipDuplicates: true,
-  });
-  revalidatePath("/espace/societe");
-  redirect("/espace/societe?ok=employe");
+export async function actionSocieteEmploye(): Promise<void> {
+  await requireRole("SOCIETE");
+  redirect("/espace/societe/equipe");
 }
 
 export async function actionRequireUser(): Promise<SessionUser> {

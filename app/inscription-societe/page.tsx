@@ -7,10 +7,10 @@ export default function InscriptionSocietePage({
 }) {
   return (
     <main>
-      <h1>Compte société (B2B)</h1>
+      <h1>Compte organisation</h1>
       <p className="lead">
-        Achetez des places pour vos employés, assignez-les à des formations, suivez l’emploi du
-        temps.
+        Entreprise ou organisme public : le responsable achète des places, invite ses collaborateurs et affecte
+        les sessions payées.
       </p>
       {searchParams.erreur === "email" ? (
         <p className="missing">Cet e-mail a déjà un compte.</p>
@@ -19,13 +19,26 @@ export default function InscriptionSocietePage({
         <p className="missing">Tous les champs sont requis (mot de passe 8 caractères min.).</p>
       ) : null}
       <form className="stack card" action={actionInscriptionSociete}>
+        <fieldset>
+          <legend>Type d’organisation</legend>
+          <label>
+            <input type="radio" name="typeOrganisation" value="ENTREPRISE" defaultChecked /> Entreprise (B2B)
+          </label>
+          <label>
+            <input type="radio" name="typeOrganisation" value="ORGANISME_PUBLIC" /> Organisme public (B2G)
+          </label>
+        </fieldset>
         <label>
           Votre nom
           <input name="nom" required />
         </label>
         <label>
-          Nom de la société
+          Nom de l’organisation
           <input name="nomSociete" required />
+        </label>
+        <label>
+          Téléphone
+          <input name="telephone" autoComplete="tel" />
         </label>
         <label>
           E-mail professionnel

@@ -1,4 +1,5 @@
 import { JourSemaine, RoleCompte, type PrismaClient } from "@prisma/client";
+import { DateTime } from "luxon";
 import { logger } from "./logger";
 import { hasherMotDePasse } from "./password";
 
@@ -78,7 +79,7 @@ export async function assurerComptesDemo(prisma: PrismaClient): Promise<void> {
     update: { nom: "Atlas Formation" },
     create: { nom: "Atlas Formation", email: "rh@atlas-formation.test" },
   });
-  await prisma.compte.upsert({
+  const responsableAtlas = await prisma.compte.upsert({
     where: { email: "rh@atlas-formation.test" },
     update: { role: RoleCompte.SOCIETE, societeId: societe.id, nom: "RH Atlas" },
     create: {
@@ -89,13 +90,18 @@ export async function assurerComptesDemo(prisma: PrismaClient): Promise<void> {
       societeId: societe.id,
     },
   });
+  await prisma.appartenance.upsert({
+    where: { compteId_societeId: { compteId: responsableAtlas.id, societeId: societe.id } },
+    update: { role: "RESPONSABLE" },
+    create: { compteId: responsableAtlas.id, societeId: societe.id, role: "RESPONSABLE" },
+  });
 
   const employe = await prisma.etudiant.upsert({
     where: { email: "employe.atlas@hannon-acadimi.test" },
     update: { nom: "Nour Atlas" },
     create: { nom: "Nour Atlas", email: "employe.atlas@hannon-acadimi.test" },
   });
-  await prisma.compte.upsert({
+  const compteEmploye = await prisma.compte.upsert({
     where: { email: employe.email },
     update: {
       role: RoleCompte.EMPLOYE,
@@ -112,12 +118,114 @@ export async function assurerComptesDemo(prisma: PrismaClient): Promise<void> {
       etudiantId: employe.id,
     },
   });
+  await prisma.appartenance.upsert({
+    where: { compteId_societeId: { compteId: compteEmploye.id, societeId: societe.id } },
+    update: { role: "APPRENANT" },
+    create: { compteId: compteEmploye.id, societeId: societe.id, role: "APPRENANT" },
+  });
+
+  const mairie = await prisma.societe.upsert({
+    where: { email: "contact@mairie-rivage.test" },
+    update: { nom: "Mairie de Rivage", type: "ORGANISME_PUBLIC" },
+    create: {
+      nom: "Mairie de Rivage",
+      email: "contact@mairie-rivage.test",
+      type: "ORGANISME_PUBLIC",
+      telephone: "0102030405",
+    },
+  });
+  const responsableMairie = await prisma.compte.upsert({
+    where: { email: "contact@mairie-rivage.test" },
+    update: { role: RoleCompte.SOCIETE, societeId: mairie.id, nom: "Inès Bernard" },
+    create: {
+      email: "contact@mairie-rivage.test",
+      nom: "Inès Bernard",
+      motDePasse: hash,
+      role: RoleCompte.SOCIETE,
+      societeId: mairie.id,
+    },
+  });
+  await prisma.appartenance.upsert({
+    where: { compteId_societeId: { compteId: responsableMairie.id, societeId: mairie.id } },
+    update: { role: "RESPONSABLE" },
+    create: { compteId: responsableMairie.id, societeId: mairie.id, role: "RESPONSABLE" },
+  });
+}
+
+async function assurerOffreCommerciale(prisma: PrismaClient): Promise<void> {
+  const cours =
+    (await prisma.cours.findFirst({ where: { titre: "Anglais professionnel B1" } })) ??
+    (await prisma.cours.create({
+      data: {
+        titre: "Anglais professionnel B1",
+        description: "Prendre la parole, rédiger et négocier en anglais dans un cadre professionnel.",
+        ouvertB2c: true,
+      },
+    }));
+  const gestion =
+    (await prisma.cours.findFirst({ where: { titre: "Gestion de projet" } })) ??
+    (await prisma.cours.create({
+      data: {
+        titre: "Gestion de projet",
+        description: "Cadrer, planifier et suivre un projet avec une équipe pluridisciplinaire.",
+        ouvertB2c: true,
+      },
+    }));
+
+  for (const [cible, prixB2c, prixOrga] of [
+    [cours, 49000, 39000],
+    [gestion, 79000, 64000],
+  ] as const) {
+    const tarif = await prisma.tarifFormation.upsert({
+      where: { coursId: cible.id },
+      update: {},
+      create: {
+        coursId: cible.id,
+        prixB2cCentimes: prixB2c,
+        prixOrganisationCentimes: prixOrga,
+      },
+    });
+    const regle = await prisma.regleRemise.findFirst({ where: { tarifId: tarif.id } });
+    if (!regle) {
+      await prisma.regleRemise.create({
+        data: {
+          tarifId: tarif.id,
+          seuilQuantite: 10,
+          typeRemise: "POURCENTAGE",
+          valeur: 15,
+          profils: ["B2B", "B2G"],
+          actif: true,
+        },
+      });
+    }
+    const ouverte = await prisma.session.findFirst({
+      where: { coursId: cible.id, statutInscription: "OUVERTE" },
+    });
+    if (!ouverte) {
+      const debut = DateTime.now()
+        .setZone("Europe/Paris")
+        .plus({ days: cible.id === cours.id ? 21 : 35 })
+        .set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
+      await prisma.session.create({
+        data: {
+          coursId: cible.id,
+          dateReelle: debut.toJSDate(),
+          dateFin: debut.plus({ hours: 7 }).toJSDate(),
+          fuseauHoraire: "Europe/Paris",
+          capaciteMax: cible.id === cours.id ? 20 : 40,
+          statutInscription: "OUVERTE",
+          statut: "PLANIFIEE",
+        },
+      });
+    }
+  }
 }
 
 export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
   const before = await counts(prisma);
   if (before.formateurs > 0 || before.licences > 0 || before.emploisDuTemps > 0) {
     await assurerComptesDemo(prisma);
+    await assurerOffreCommerciale(prisma);
     logger.info("Seed métier ignoré (données déjà présentes), comptes démo assurés", before);
     return { seeded: false, reason: "already_populated", ...before };
   }
@@ -211,6 +319,7 @@ export async function seedIfEmpty(prisma: PrismaClient): Promise<SeedResult> {
   }
 
   await assurerComptesDemo(prisma);
+  await assurerOffreCommerciale(prisma);
   const after = await counts(prisma);
   logger.info("Seed de démonstration inséré", after);
   return { seeded: true, reason: "created", ...after };

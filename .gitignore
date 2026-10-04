@@ -35,6 +35,9 @@ yarn-error.log*
 prisma/*.db
 prisma/*.db-journal
 
+# documents personnels (certificats, ressources)
+/storage/prive
+
 # IDE
 .idea
 .vscode

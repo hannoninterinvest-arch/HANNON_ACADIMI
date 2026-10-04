@@ -39,6 +39,61 @@ enum RoleCompte {
   EMPLOYE
 }
 
+enum TypeOrganisation {
+  ENTREPRISE
+  ORGANISME_PUBLIC
+}
+
+enum RoleAppartenance {
+  RESPONSABLE
+  APPRENANT
+}
+
+enum StatutOuvertureSession {
+  OUVERTE
+  FERMEE
+  COMPLETE
+  ANNULEE
+}
+
+enum StatutCommande {
+  EN_ATTENTE
+  PAYEE
+  ECHOUEE
+  ANNULEE
+  REMBOURSEE
+}
+
+enum ProfilTarif {
+  B2C
+  B2B
+  B2G
+}
+
+enum TypeRemise {
+  POURCENTAGE
+  MONTANT_FIXE
+}
+
+enum StatutReservation {
+  ACTIVE
+  CONFIRMEE
+  LIBEREE
+  EXPIREE
+}
+
+enum TypeAcheteur {
+  PARTICULIER
+  ORGANISATION
+}
+
+enum StatutDemande {
+  NOUVELLE
+  EN_COURS
+  PROPOSITION_ENVOYEE
+  CLOTUREE
+}
+
 model Compte {
   id          String     @id @default(cuid())
   email       String     @unique
@@ -50,24 +105,36 @@ model Compte {
   etudiantId  String?    @unique
   createdAt   DateTime   @default(now())
 
-  societe   Societe?   @relation(fields: [societeId], references: [id], onDelete: SetNull)
-  formateur Formateur? @relation(fields: [formateurId], references: [id], onDelete: SetNull)
-  etudiant  Etudiant?  @relation(fields: [etudiantId], references: [id], onDelete: SetNull)
+  societe      Societe?       @relation(fields: [societeId], references: [id], onDelete: SetNull)
+  formateur    Formateur?     @relation(fields: [formateurId], references: [id], onDelete: SetNull)
+  etudiant     Etudiant?      @relation(fields: [etudiantId], references: [id], onDelete: SetNull)
+  appartenances Appartenance[]
+  commandes    Commande[]
+  affectations Affectation[]
+  certificats  Certificat[]
 
   @@index([role])
   @@index([societeId])
 }
 
 model Societe {
-  id        String        @id @default(cuid())
+  id        String            @id @default(cuid())
   nom       String
-  email     String        @unique
-  createdAt DateTime      @default(now())
-  comptes   Compte[]
-  achats    AchatPlaces[]
+  email     String            @unique
+  type      TypeOrganisation  @default(ENTREPRISE)
+  telephone String?
+  createdAt DateTime          @default(now())
+
+  comptes       Compte[]
+  achats        AchatPlaces[]
+  appartenances Appartenance[]
+  commandes     Commande[]
+  affectations  Affectation[]
+  invitations   Invitation[]
+  demandes      DemandeFormation[]
 }
 
-/// Achat B2B : N places pour un cours, ensuite assignées à des employés.
+/// Achat B2B historique (avant commandes payées). Conservé pour les données existantes.
 model AchatPlaces {
   id        String   @id @default(cuid())
   societeId String
@@ -82,14 +149,45 @@ model AchatPlaces {
   @@index([coursId])
 }
 
+model Appartenance {
+  id        String           @id @default(cuid())
+  compteId  String
+  societeId String
+  role      RoleAppartenance
+  createdAt DateTime         @default(now())
+
+  compte  Compte  @relation(fields: [compteId], references: [id], onDelete: Cascade)
+  societe Societe @relation(fields: [societeId], references: [id], onDelete: Cascade)
+
+  @@unique([compteId, societeId])
+  @@index([societeId, role])
+}
+
+model Invitation {
+  id               String    @id @default(cuid())
+  societeId        String
+  email            String
+  nom              String
+  jetonHash        String    @unique
+  expireLe         DateTime
+  accepteeLe       DateTime?
+  compteExistantId String?
+  createdAt        DateTime  @default(now())
+
+  societe Societe @relation(fields: [societeId], references: [id], onDelete: Cascade)
+
+  @@index([societeId, email])
+}
+
 model Formateur {
   id        String   @id @default(cuid())
   nom       String
   email     String   @unique
   createdAt DateTime @default(now())
 
-  emploisDuTemps EmploiDuTemps[]
-  compte         Compte?
+  emploisDuTemps   EmploiDuTemps[]
+  compte           Compte?
+  sessionsAnimees  Session[]       @relation("SessionFormateur")
 }
 
 model Cours {
@@ -99,9 +197,41 @@ model Cours {
   ouvertB2c   Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  emploisDuTemps EmploiDuTemps[]
-  inscriptions   Inscription[]
-  achats         AchatPlaces[]
+  emploisDuTemps       EmploiDuTemps[]
+  inscriptions         Inscription[]
+  achats               AchatPlaces[]
+  sessionsCommerciales Session[]          @relation("SessionsCommerciales")
+  tarif                TarifFormation?
+  commandes            Commande[]
+  demandes             DemandeFormation[]
+  ressources           RessourceCours[]
+  certificats          Certificat[]
+}
+
+model TarifFormation {
+  id                         String @id @default(cuid())
+  coursId                    String @unique
+  prixB2cCentimes            Int
+  prixOrganisationCentimes   Int
+  devise                     String @default("EUR")
+  updatedAt                  DateTime @updatedAt
+
+  cours  Cours        @relation(fields: [coursId], references: [id], onDelete: Cascade)
+  regles RegleRemise[]
+}
+
+model RegleRemise {
+  id             String      @id @default(cuid())
+  tarifId        String
+  seuilQuantite  Int         @default(10)
+  typeRemise     TypeRemise
+  valeur         Int
+  profils        ProfilTarif[]
+  actif          Boolean     @default(true)
+
+  tarif TarifFormation @relation(fields: [tarifId], references: [id], onDelete: Cascade)
+
+  @@index([tarifId])
 }
 
 model Etudiant {
@@ -148,26 +278,41 @@ model EmploiDuTemps {
 }
 
 model Session {
-  id              String        @id @default(cuid())
-  emploiDuTempsId String
-  dateReelle      DateTime
-  zoomMeetingId   String?
-  joinUrl         String?
-  hostKey         String?
-  statut          StatutSession @default(PLANIFIEE)
-  licenceZoomId   String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                 String                  @id @default(cuid())
+  emploiDuTempsId    String?
+  coursId            String?
+  formateurId        String?
+  dateReelle         DateTime
+  dateFin            DateTime?
+  fuseauHoraire      String                  @default("Europe/Paris")
+  capaciteMax        Int                     @default(12)
+  statutInscription  StatutOuvertureSession  @default(FERMEE)
+  lienZoomManuel     String?
+  zoomMeetingId      String?
+  joinUrl            String?
+  hostKey            String?
+  statut             StatutSession           @default(PLANIFIEE)
+  licenceZoomId      String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
-  emploiDuTemps    EmploiDuTemps @relation(fields: [emploiDuTempsId], references: [id], onDelete: Restrict)
-  licenceZoom      LicenceZoom?  @relation("SessionLicenceAssignee", fields: [licenceZoomId], references: [id], onDelete: SetNull)
-  licenceOccupante LicenceZoom?  @relation("LicenceSessionEnCours")
+  emploiDuTemps    EmploiDuTemps? @relation(fields: [emploiDuTempsId], references: [id], onDelete: Restrict)
+  cours            Cours?         @relation("SessionsCommerciales", fields: [coursId], references: [id], onDelete: Restrict)
+  formateur        Formateur?     @relation("SessionFormateur", fields: [formateurId], references: [id], onDelete: SetNull)
+  licenceZoom      LicenceZoom?   @relation("SessionLicenceAssignee", fields: [licenceZoomId], references: [id], onDelete: SetNull)
+  licenceOccupante LicenceZoom?   @relation("LicenceSessionEnCours")
+  commandes        Commande[]
+  reservations     ReservationPlaces[]
+  affectations     Affectation[]
+  certificats      Certificat[]
 
   @@unique([emploiDuTempsId, dateReelle])
   @@index([statut])
   @@index([dateReelle])
   @@index([zoomMeetingId])
   @@index([licenceZoomId])
+  @@index([coursId])
+  @@index([statutInscription])
 }
 
 model LicenceZoom {
@@ -184,4 +329,130 @@ model LicenceZoom {
   sessions       Session[] @relation("SessionLicenceAssignee")
 
   @@index([statut])
+}
+
+model Commande {
+  id                      String         @id @default(cuid())
+  reference               String         @unique
+  compteId                String
+  societeId               String?
+  coursId                 String
+  sessionId               String
+  quantite                Int
+  prixUnitaireCentimes    Int
+  remiseUnitaireCentimes  Int
+  totalCentimes           Int
+  devise                  String         @default("EUR")
+  statut                  StatutCommande @default(EN_ATTENTE)
+  typeAcheteur            TypeAcheteur
+  profilTarif             ProfilTarif
+  seuilApplique           Int?
+  typeRemiseApplique      TypeRemise?
+  valeurRemiseAppliquee   Int?
+  libelleRemise           String?
+  fournisseurPaiement     String
+  referenceFournisseur    String?        @unique
+  payeeLe                 DateTime?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  compte       Compte              @relation(fields: [compteId], references: [id], onDelete: Restrict)
+  societe      Societe?            @relation(fields: [societeId], references: [id], onDelete: Restrict)
+  cours        Cours               @relation(fields: [coursId], references: [id], onDelete: Restrict)
+  session      Session             @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  reservation  ReservationPlaces?
+  affectations Affectation[]
+
+  @@index([sessionId, statut])
+  @@index([societeId, sessionId])
+  @@index([compteId])
+}
+
+model ReservationPlaces {
+  id         String            @id @default(cuid())
+  sessionId  String
+  commandeId String            @unique
+  quantite   Int
+  expireLe   DateTime
+  statut     StatutReservation @default(ACTIVE)
+  createdAt  DateTime          @default(now())
+
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  commande Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, statut, expireLe])
+}
+
+model Affectation {
+  id         String   @id @default(cuid())
+  commandeId String
+  societeId  String
+  sessionId  String
+  compteId   String
+  createdAt  DateTime @default(now())
+
+  commande Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+  societe  Societe  @relation(fields: [societeId], references: [id], onDelete: Restrict)
+  session  Session  @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  compte   Compte   @relation(fields: [compteId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, compteId])
+  @@index([commandeId])
+  @@index([societeId, sessionId])
+}
+
+model DemandeFormation {
+  id                String        @id @default(cuid())
+  societeId         String?
+  organisationNom   String
+  contactNom        String
+  email             String
+  telephone         String
+  coursId           String?
+  sujetPersonnalise String?
+  nbParticipants    Int
+  periodeSouhaitee  String
+  message           String
+  statut            StatutDemande @default(NOUVELLE)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  societe Societe? @relation(fields: [societeId], references: [id], onDelete: SetNull)
+  cours   Cours?   @relation(fields: [coursId], references: [id], onDelete: SetNull)
+
+  @@index([statut])
+}
+
+model RessourceCours {
+  id             String   @id @default(cuid())
+  coursId        String
+  titre          String
+  description    String?
+  nomFichier     String
+  cheminStockage String
+  typeMime       String
+  createdAt      DateTime @default(now())
+
+  cours Cours @relation(fields: [coursId], references: [id], onDelete: Cascade)
+
+  @@index([coursId])
+}
+
+model Certificat {
+  id             String   @id @default(cuid())
+  compteId       String
+  coursId        String
+  sessionId      String?
+  titre          String
+  nomFichier     String
+  cheminStockage String
+  typeMime       String
+  emisLe         DateTime @default(now())
+
+  compte  Compte   @relation(fields: [compteId], references: [id], onDelete: Cascade)
+  cours   Cours    @relation(fields: [coursId], references: [id], onDelete: Restrict)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([compteId])
+  @@index([coursId])
 }

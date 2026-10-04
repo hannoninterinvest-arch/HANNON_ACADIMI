@@ -70,6 +70,12 @@ export async function modifierSessionPonctuelle(
     );
   }
 
+  if (!session.emploiDuTemps) {
+    throw new SessionMutationError(
+      "Cette session se modifie depuis l'administration des sessions (lien Zoom et capacité).",
+    );
+  }
+
   const prochaineDate = patch.dateReelle ?? session.dateReelle;
   const prochaineDuree = patch.dureeMinutes ?? session.emploiDuTemps.dureeMinutes;
 

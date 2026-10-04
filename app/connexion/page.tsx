@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ConnexionPage({
   searchParams,
 }: {
-  searchParams: { erreur?: string };
+  searchParams: { erreur?: string; next?: string };
 }) {
   const session = await lireSession();
   if (session) {
@@ -18,11 +18,15 @@ export default async function ConnexionPage({
   return (
     <main>
       <h1>Connexion</h1>
-      <p className="lead">Accédez à votre espace selon votre type de compte.</p>
-      {searchParams.erreur ? (
-        <p className="missing">E-mail ou mot de passe incorrect.</p>
+      <p className="lead">Particuliers, responsables de formation et apprenants utilisent la même porte d’entrée.</p>
+      {searchParams.erreur === "identifiants" ? (
+        <p className="alert err">E-mail ou mot de passe incorrect.</p>
+      ) : null}
+      {searchParams.erreur === "invitation" ? (
+        <p className="alert err">Cette invitation n’est plus valable.</p>
       ) : null}
       <form className="stack card" action={actionConnexion}>
+        {searchParams.next?.startsWith("/") ? <input type="hidden" name="next" value={searchParams.next} /> : null}
         <label>
           E-mail
           <input type="email" name="email" required autoComplete="username" />
@@ -36,9 +40,10 @@ export default async function ConnexionPage({
       <p className="footer">
         Comptes de démo (mot de passe <code>{MOT_DE_PASSE_DEMO}</code>) :<br />
         Admin <code>admin@hannon-acadimi.test</code> · Formateur{" "}
-        <code>amira.benali@hannon-acadimi.test</code> · Étudiant{" "}
-        <code>sofia.martin@hannon-acadimi.test</code> · Société{" "}
-        <code>rh@atlas-formation.test</code> · Employé{" "}
+        <code>amira.benali@hannon-acadimi.test</code> · Particulier{" "}
+        <code>sofia.martin@hannon-acadimi.test</code> · Entreprise{" "}
+        <code>rh@atlas-formation.test</code> · Organisme public{" "}
+        <code>contact@mairie-rivage.test</code> · Apprenant{" "}
         <code>employe.atlas@hannon-acadimi.test</code>
       </p>
     </main>

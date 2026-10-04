@@ -84,10 +84,22 @@ export async function requireRole(...roles: RoleCompte[]): Promise<SessionUser> 
 export const LIBELLES_ROLE: Record<RoleCompte, string> = {
   ADMIN: "Administrateur",
   FORMATEUR: "Formateur",
-  ETUDIANT_B2C: "Étudiant (B2C)",
-  SOCIETE: "Société (B2B)",
-  EMPLOYE: "Employé",
+  ETUDIANT_B2C: "Particulier",
+  SOCIETE: "Responsable de formation",
+  EMPLOYE: "Apprenant",
 };
+
+export function libelleRole(
+  role: RoleCompte,
+  typeOrganisation?: "ENTREPRISE" | "ORGANISME_PUBLIC" | null,
+): string {
+  if (role === "SOCIETE") {
+    return typeOrganisation === "ORGANISME_PUBLIC"
+      ? "Responsable de formation (B2G)"
+      : "Responsable de formation (B2B)";
+  }
+  return LIBELLES_ROLE[role];
+}
 
 export function cheminEspace(role: RoleCompte): string {
   switch (role) {
