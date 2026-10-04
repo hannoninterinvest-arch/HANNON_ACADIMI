@@ -11,7 +11,7 @@ export default async function AdminZoomPage({
 }) {
   await requireRole("ADMIN");
   const licences = await prisma.licenceZoom.findMany({
-    include: { sessionEnCours: { include: { emploiDuTemps: { include: { cours: true } } } } },
+    include: { sessionEnCours: { include: { emploiDuTemps: { include: { cours: true } }, cours: true } } },
     orderBy: { compteEmail: "asc" },
   });
   const libres = licences.filter((l) => l.statut === "LIBRE").length;
@@ -68,9 +68,7 @@ export default async function AdminZoomPage({
                   <span className={`badge ${l.statut === "LIBRE" ? "" : "warn"}`}>{l.statut}</span>
                 </td>
                 <td>
-                  {l.sessionEnCours
-                    ? l.sessionEnCours.emploiDuTemps.cours.titre
-                    : "—"}
+                  {l.sessionEnCours?.emploiDuTemps?.cours.titre ?? l.sessionEnCours?.cours?.titre ?? "—"}
                 </td>
               </tr>
             ))}

@@ -1,56 +1,243 @@
+import Link from "next/link";
+import { DateTime } from "luxon";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { actionAdminFormation } from "@/lib/actions";
+import { participantsParSession } from "@/lib/participants";
+import { VISUELS } from "@/lib/visuels";
+import { Banniere } from "@/app/components/Banniere";
+import {
+  actionAdminFormationComplet,
+  actionAdminFormationModifier,
+  actionAdminFormationSupprimer,
+} from "@/lib/actions/adminStudio";
 
 export const dynamic = "force-dynamic";
+
+function champ(date: Date, fuseau: string, format: string): string {
+  return DateTime.fromJSDate(date, { zone: "utc" }).setZone(fuseau).toFormat(format);
+}
 
 export default async function AdminFormations({
   searchParams,
 }: {
-  searchParams: { ok?: string };
+  searchParams: { ok?: string; erreur?: string };
 }) {
   await requireRole("ADMIN");
-  const cours = await prisma.cours.findMany({
-    include: { _count: { select: { inscriptions: true, emploisDuTemps: true } } },
-    orderBy: { titre: "asc" },
-  });
+  const [cours, formateurs] = await Promise.all([
+    prisma.cours.findMany({
+      include: {
+        sessionsCommerciales: { orderBy: { dateReelle: "asc" } },
+      },
+      orderBy: { titre: "asc" },
+    }),
+    prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
+  ]);
+  const participants = await participantsParSession(
+    cours.flatMap((item) => item.sessionsCommerciales.map((session) => session.id)),
+    true,
+  );
 
   return (
     <>
       <h1>Formations</h1>
-      {searchParams.ok ? <p className="ok">Formation créée.</p> : null}
-      <form className="stack card" action={actionAdminFormation}>
+      <p className="lead">
+        Publiez l’affiche, le domaine et le minimum de participants. Les groupes, les dates et les liens Zoom se règlent
+        ensuite. Le catalogue reste vide tant que vous n’en publiez pas.
+      </p>
+      <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
+      <form className="stack card" action={actionAdminFormationComplet}>
         <h2>Nouvelle formation</h2>
         <label>
           Titre
           <input name="titre" required />
         </label>
+        <div className="form-row">
+          <label>
+            Domaine
+            <input name="domaine" placeholder="Bureautique, langues, management…" />
+          </label>
+          <label>
+            Formateur
+            <select name="formateurId" defaultValue="">
+              <option value="">Annoncé plus tard</option>
+              {formateurs.map((formateur) => (
+                <option key={formateur.id} value={formateur.id}>
+                  {formateur.nom}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label>
-          Description
-          <textarea name="description" rows={3} />
+          Détails de la formation
+          <textarea name="description" rows={3} placeholder="Objectifs, public, déroulé de la classe en ligne…" />
         </label>
-        <button type="submit">Publier</button>
-      </form>
-      <section className="card" style={{ marginTop: "1rem" }}>
-        <table>
-          <thead>
-            <tr>
-              <th>Titre</th>
-              <th>Inscrits</th>
-              <th>Créneaux</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cours.map((c) => (
-              <tr key={c.id}>
-                <td>{c.titre}</td>
-                <td>{c._count.inscriptions}</td>
-                <td>{c._count.emploisDuTemps}</td>
-              </tr>
+        <label>
+          Rythme annoncé
+          <input name="horaire" placeholder="Les mardis, en fin de journée" />
+        </label>
+        <label>
+          Nombre minimal pour ouvrir un groupe
+          <input type="number" name="effectifMinimal" min={1} max={500} defaultValue={6} required />
+        </label>
+        <p className="muted">La date, l’horaire exact et le lien Zoom se règlent ensuite, groupe par groupe.</p>
+        <div className="form-row">
+          <label>
+            Prix particulier (€)
+            <input name="prixB2c" inputMode="decimal" placeholder="120" />
+          </label>
+          <label>
+            Prix organisation (€)
+            <input name="prixOrganisation" inputMode="decimal" placeholder="90" />
+          </label>
+        </div>
+        <label>
+          Photo de la bibliothèque
+          <select name="visuel" defaultValue="">
+            <option value="">Aucune</option>
+            {VISUELS.map((visuel) => (
+              <option key={visuel.src} value={visuel.src}>
+                {visuel.alt}
+              </option>
             ))}
-          </tbody>
-        </table>
-      </section>
+          </select>
+        </label>
+        <label>
+          Ou déposer l’affiche
+          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/avif" />
+        </label>
+        <button type="submit">Publier la formation</button>
+      </form>
+
+      <div className="grid" style={{ marginTop: "1rem" }}>
+        {cours.length === 0 ? (
+          <div className="empty">Aucune formation pour le moment.</div>
+        ) : (
+          cours.map((item) => {
+            const session = item.sessionsCommerciales[0];
+            const personnes = item.sessionsCommerciales.flatMap((seance) => participants.get(seance.id) ?? []);
+            const uniques = Array.from(new Map(personnes.map((personne) => [personne.id, personne])).values());
+            return (
+              <article className="card" key={item.id}>
+                {item.imageChemin ? (
+                  <img className="course-photo" src={item.imageChemin} alt="" />
+                ) : null}
+                <form className="stack" action={actionAdminFormationModifier}>
+                  <input type="hidden" name="coursId" value={item.id} />
+                  {session ? <input type="hidden" name="sessionId" value={session.id} /> : null}
+                  <label>
+                    Titre
+                    <input name="titre" defaultValue={item.titre} required />
+                  </label>
+                  <div className="form-row">
+                    <label>
+                      Domaine
+                      <input name="domaine" defaultValue={item.domaine ?? ""} />
+                    </label>
+                    <label>
+                      Formateur
+                      <select name="formateurId" defaultValue={session?.formateurId ?? ""}>
+                        <option value="">Annoncé plus tard</option>
+                        {formateurs.map((formateur) => (
+                          <option key={formateur.id} value={formateur.id}>
+                            {formateur.nom}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Détails
+                    <textarea name="description" rows={2} defaultValue={item.description ?? ""} />
+                  </label>
+                  <label>
+                    Rythme annoncé
+                    <input name="horaire" defaultValue={item.horaire ?? ""} />
+                  </label>
+                  <label>
+                    Minimum pour un groupe
+                    <input type="number" name="effectifMinimal" min={1} max={500} defaultValue={item.effectifMinimal} required />
+                  </label>
+                  <p>
+                    <Link href={`/espace/admin/formations/${item.id}`}>Groupes, participants et lien Zoom</Link>
+                  </p>
+                  {session ? (
+                    <div className="form-row">
+                      <label>
+                        Date
+                        <input type="date" name="jour" defaultValue={champ(session.dateReelle, session.fuseauHoraire, "yyyy-MM-dd")} />
+                      </label>
+                      <label>
+                        Début
+                        <input type="time" name="heureDebut" defaultValue={champ(session.dateReelle, session.fuseauHoraire, "HH:mm")} />
+                      </label>
+                      <label>
+                        Fin
+                        <input
+                          type="time"
+                          name="heureFin"
+                          defaultValue={session.dateFin ? champ(session.dateFin, session.fuseauHoraire, "HH:mm") : "12:00"}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="muted">Ajoutez une date depuis Sessions.</p>
+                  )}
+                  <label>
+                    Lien Zoom
+                    <input name="lienZoomManuel" defaultValue={session?.lienZoomManuel ?? ""} />
+                  </label>
+                  <label>
+                    Code de réunion
+                    <input name="codeReunion" defaultValue={session?.codeReunion ?? ""} />
+                  </label>
+                  <label>
+                    Photo
+                    <select name="visuel" defaultValue={item.imageChemin && VISUELS.some((visuel) => visuel.src === item.imageChemin) ? item.imageChemin : ""}>
+                      <option value="">Garder la photo actuelle</option>
+                      {VISUELS.map((visuel) => (
+                        <option key={visuel.src} value={visuel.src}>
+                          {visuel.alt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Nouvelle photo
+                    <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/avif" />
+                  </label>
+                  <label className="check">
+                    <input type="checkbox" name="retirerPhoto" /> Retirer la photo
+                  </label>
+                  <button type="submit">Enregistrer</button>
+                </form>
+                <h3>Personnes inscrites</h3>
+                {uniques.length === 0 ? (
+                  <p className="muted">Personne n’est encore inscrit à cette formation.</p>
+                ) : (
+                  <ul className="plain">
+                    {uniques.map((personne) => (
+                      <li key={personne.id}>
+                        {personne.nom}
+                        {personne.email ? <span className="muted"> · {personne.email}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form action={actionAdminFormationSupprimer}>
+                  <input type="hidden" name="coursId" value={item.id} />
+                  <label className="check">
+                    <input type="checkbox" name="confirmer" required /> Confirmer la suppression
+                  </label>
+                  <button type="submit" className="btn-secondary">
+                    Supprimer
+                  </button>
+                </form>
+              </article>
+            );
+          })
+        )}
+      </div>
     </>
   );
 }

@@ -19,7 +19,7 @@ export default async function AdminEdtPage({
       orderBy: [{ jourSemaine: "asc" }, { heureDebut: "asc" }],
     }),
     prisma.session.findMany({
-      include: { emploiDuTemps: { include: { cours: true } }, licenceZoom: true },
+      include: { emploiDuTemps: { include: { cours: true } }, cours: true, licenceZoom: true },
       orderBy: { dateReelle: "asc" },
       take: 30,
     }),
@@ -124,7 +124,7 @@ export default async function AdminEdtPage({
             {sessions.map((s) => (
               <tr key={s.id}>
                 <td>{s.dateReelle.toISOString()}</td>
-                <td>{s.emploiDuTemps.cours.titre}</td>
+                <td>{s.cours?.titre ?? s.emploiDuTemps?.cours.titre ?? "—"}</td>
                 <td>
                   <span className={`badge ${s.statut === "EN_COURS" ? "warn" : ""}`}>
                     {s.statut}

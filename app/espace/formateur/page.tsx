@@ -7,8 +7,10 @@ export default async function FormateurEspace() {
   const user = await requireRole("FORMATEUR");
   const sessions = user.formateurId
     ? await prisma.session.findMany({
-        where: { emploiDuTemps: { formateurId: user.formateurId } },
-        include: { emploiDuTemps: { include: { cours: true } } },
+        where: {
+          OR: [{ emploiDuTemps: { formateurId: user.formateurId } }, { formateurId: user.formateurId }],
+        },
+        include: { emploiDuTemps: { include: { cours: true } }, cours: true },
         orderBy: { dateReelle: "asc" },
         take: 40,
       })
@@ -53,17 +55,17 @@ export default async function FormateurEspace() {
             {sessions.map((s) => (
               <tr key={s.id}>
                 <td>{s.dateReelle.toISOString()}</td>
-                <td>{s.emploiDuTemps.cours.titre}</td>
+                <td>{s.cours?.titre ?? s.emploiDuTemps?.cours.titre ?? "—"}</td>
                 <td>
                   <span className="badge">{s.statut}</span>
                 </td>
                 <td>
-                  {s.joinUrl ? (
-                    <a href={s.joinUrl} target="_blank" rel="noreferrer">
+                  {s.lienZoomManuel || s.joinUrl ? (
+                    <a href={s.lienZoomManuel || s.joinUrl || "#"} target="_blank" rel="noreferrer">
                       Rejoindre
                     </a>
                   ) : (
-                    "—"
+                    "Lien Zoom non renseigné"
                   )}
                 </td>
                 <td>

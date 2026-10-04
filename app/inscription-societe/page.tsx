@@ -1,42 +1,22 @@
-import { actionInscriptionSociete } from "@/lib/actions";
+import Link from "next/link";
 
-export default function InscriptionSocietePage({
-  searchParams,
-}: {
-  searchParams: { erreur?: string };
-}) {
+export default function InscriptionSocietePage() {
   return (
     <main>
-      <h1>Compte société (B2B)</h1>
+      <p className="eyebrow">Organisations</p>
+      <h1>Les comptes organisation sont ouverts par l’académie</h1>
       <p className="lead">
-        Achetez des places pour vos employés, assignez-les à des formations, suivez l’emploi du
-        temps.
+        Un particulier crée son compte lui-même. Une entreprise ou un organisme public est créé par un administrateur,
+        puis le responsable ouvre les comptes de ses collaborateurs.
       </p>
-      {searchParams.erreur === "email" ? (
-        <p className="missing">Cet e-mail a déjà un compte.</p>
-      ) : null}
-      {searchParams.erreur === "champs" ? (
-        <p className="missing">Tous les champs sont requis (mot de passe 8 caractères min.).</p>
-      ) : null}
-      <form className="stack card" action={actionInscriptionSociete}>
-        <label>
-          Votre nom
-          <input name="nom" required />
-        </label>
-        <label>
-          Nom de la société
-          <input name="nomSociete" required />
-        </label>
-        <label>
-          E-mail professionnel
-          <input type="email" name="email" required />
-        </label>
-        <label>
-          Mot de passe
-          <input type="password" name="motDePasse" required minLength={8} />
-        </label>
-        <button type="submit">Créer le compte société</button>
-      </form>
+      <div className="actions">
+        <Link className="btn" href="/inscription">
+          Créer un compte particulier
+        </Link>
+        <Link className="btn-secondary" href="/connexion">
+          Se connecter
+        </Link>
+      </div>
     </main>
   );
 }

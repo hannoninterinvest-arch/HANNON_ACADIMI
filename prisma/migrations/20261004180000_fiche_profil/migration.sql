@@ -1,0 +1,9 @@
+ALTER TABLE "Cours" ADD COLUMN "domaine" TEXT;
+ALTER TABLE "Formateur" ADD COLUMN "specialite" TEXT;
+ALTER TABLE "Formateur" ADD COLUMN "photoChemin" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "prenom" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "telephone" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "niveauEtude" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "situation" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "ville" TEXT;
+ALTER TABLE "Etudiant" ADD COLUMN "dateNaissance" DATE;

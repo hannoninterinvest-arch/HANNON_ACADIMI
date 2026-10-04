@@ -1,95 +1,246 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { actionEtudiantInscription } from "@/lib/actions";
+import { formaterCreneau, lienZoomSession } from "@/lib/format";
+import { participantsParSession } from "@/lib/participants";
+import { Banniere } from "@/app/components/Banniere";
+import { CompteARebours } from "@/app/components/CompteARebours";
+import { BoutonCopier } from "@/app/components/BoutonCopier";
+import { libelleCandidature } from "@/lib/groupes";
+import { actionPayerGroupe } from "@/lib/actions/groupes";
 
 export const dynamic = "force-dynamic";
 
-export default async function EtudiantEspace({
+export default async function EspaceApprenant({
   searchParams,
 }: {
-  searchParams: { ok?: string };
+  searchParams: { ok?: string; erreur?: string };
 }) {
-  const user = await requireRole("ETUDIANT_B2C", "EMPLOYE");
-  const inscriptions = user.etudiantId
-    ? await prisma.inscription.findMany({
-        where: { etudiantId: user.etudiantId },
-        include: {
-          cours: {
-            include: {
-              emploisDuTemps: {
-                include: {
-                  sessions: {
-                    where: { statut: { in: ["PLANIFIEE", "EN_COURS"] } },
-                    orderBy: { dateReelle: "asc" },
-                    take: 5,
+  const user = await requireRole("ETUDIANT_B2C", "EMPLOYE", "SOCIETE");
+  const [personnelles, affectations, certificats, historiques, candidatures] = await Promise.all([
+    prisma.commande.findMany({
+      where: { compteId: user.id, statut: "PAYEE", typeAcheteur: "PARTICULIER" },
+      include: { cours: { include: { ressources: true } }, session: true },
+      orderBy: { session: { dateReelle: "asc" } },
+    }),
+    prisma.affectation.findMany({
+      where: { compteId: user.id },
+      include: {
+        session: true,
+        societe: true,
+        commande: { include: { cours: { include: { ressources: true } } } },
+      },
+    }),
+    prisma.certificat.findMany({
+      where: { compteId: user.id },
+      include: { cours: true },
+      orderBy: { emisLe: "desc" },
+    }),
+    user.etudiantId
+      ? prisma.inscription.findMany({
+          where: { etudiantId: user.etudiantId },
+          include: {
+            cours: {
+              include: {
+                ressources: true,
+                emploisDuTemps: {
+                  include: {
+                    sessions: { where: { statut: { in: ["PLANIFIEE", "EN_COURS"] } }, orderBy: { dateReelle: "asc" }, take: 4 },
                   },
                 },
               },
             },
           },
-        },
-      })
-    : [];
-  const inscrits = new Set(inscriptions.map((i) => i.coursId));
-  const catalogue =
-    user.role === "ETUDIANT_B2C"
-      ? await prisma.cours.findMany({
-          where: { ouvertB2c: true, id: { notIn: Array.from(inscrits) } },
-          orderBy: { titre: "asc" },
         })
-      : [];
+      : Promise.resolve([]),
+    prisma.candidature.findMany({
+      where: { compteId: user.id, statut: { notIn: ["ANNULEE", "PAYEE"] } },
+      include: { cours: true, groupe: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const seances = [
+    ...personnelles.map((commande) => ({
+      id: commande.session.id,
+      titre: commande.cours.titre,
+      image: commande.cours.imageChemin,
+      horaire: commande.cours.horaire,
+      session: commande.session,
+      origine: "Achat personnel",
+    })),
+    ...affectations.map((affectation) => ({
+      id: affectation.session.id,
+      titre: affectation.commande.cours.titre,
+      image: affectation.commande.cours.imageChemin,
+      horaire: affectation.commande.cours.horaire,
+      session: affectation.session,
+      origine: affectation.societe.nom,
+    })),
+    ...historiques.flatMap((inscription) =>
+      inscription.cours.emploisDuTemps.flatMap((edt) =>
+        edt.sessions.map((session) => ({
+          id: session.id,
+          titre: inscription.cours.titre,
+          image: inscription.cours.imageChemin,
+          horaire: inscription.cours.horaire,
+          session,
+          origine: "Inscription existante",
+        })),
+      ),
+    ),
+  ]
+    .filter((seance, index, liste) => liste.findIndex((autre) => autre.id === seance.id) === index)
+    .sort((a, b) => a.session.dateReelle.getTime() - b.session.dateReelle.getTime());
+  const participants = await participantsParSession(
+    seances.map((seance) => seance.session.id),
+    false,
+  );
+
+  const ressources = new Map<string, { id: string; titre: string; nomFichier: string }>();
+  for (const commande of personnelles) {
+    for (const ressource of commande.cours.ressources) {
+      ressources.set(ressource.id, ressource);
+    }
+  }
+  for (const affectation of affectations) {
+    for (const ressource of affectation.commande.cours.ressources) {
+      ressources.set(ressource.id, ressource);
+    }
+  }
+  for (const inscription of historiques) {
+    for (const ressource of inscription.cours.ressources) {
+      ressources.set(ressource.id, ressource);
+    }
+  }
+
+  const vide = seances.length === 0 && certificats.length === 0 && candidatures.length === 0;
 
   return (
     <>
-      <h1>Mes formations</h1>
-      {searchParams.ok ? <p className="ok">Inscription enregistrée.</p> : null}
+      <h1>Mon espace</h1>
+      <p className="lead">Vos sessions, votre planning, les liens Zoom, les ressources et les certificats.</p>
+      <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
+      {searchParams.ok === "rattachement" ? (
+        <p className="alert ok">Votre compte est rattaché à l’organisation. Vos achats personnels sont conservés.</p>
+      ) : null}
+      {vide ? (
+        <div className="empty">
+          <p>Vous n’avez pas encore de formation. Déposez une demande depuis le catalogue.</p>
+          <Link className="btn" href="/catalogue">
+            Voir le catalogue
+          </Link>
+        </div>
+      ) : null}
 
-      {user.role === "ETUDIANT_B2C" ? (
-        <section className="card">
-          <h2>S’inscrire à une formation</h2>
-          {catalogue.length === 0 ? (
-            <p>Aucune formation supplémentaire disponible.</p>
-          ) : (
-            catalogue.map((c) => (
-              <form key={c.id} action={actionEtudiantInscription} style={{ marginBottom: "0.5rem" }}>
-                <input type="hidden" name="coursId" value={c.id} />
-                <strong>{c.titre}</strong>
-                {c.description ? ` — ${c.description}` : ""}{" "}
-                <button type="submit">Rejoindre</button>
-              </form>
-            ))
-          )}
+      {candidatures.length > 0 ? (
+        <section>
+          <h2>Mes demandes</h2>
+          <div className="grid">
+            {candidatures.map((candidature) => (
+              <article className="card" key={candidature.id}>
+                <h3>{candidature.cours.titre}</h3>
+                <p className="tag">{libelleCandidature(candidature.statut)}</p>
+                {candidature.groupe?.dateDebut ? (
+                  <p>{formaterCreneau(candidature.groupe.dateDebut, "Europe/Paris")}</p>
+                ) : (
+                  <p className="muted">Nous vous contactons. Le paiement s’ouvre quand le groupe atteint le minimum.</p>
+                )}
+                {candidature.groupe?.horaire ? <p className="muted">{candidature.groupe.horaire}</p> : null}
+                {candidature.statut === "DANS_GROUPE" && candidature.groupe?.paiementOuvert ? (
+                  <form action={actionPayerGroupe}>
+                    <input type="hidden" name="candidatureId" value={candidature.id} />
+                    <button type="submit">Payer en ligne</button>
+                  </form>
+                ) : null}
+                <Link href={`/formations/${candidature.coursId}`}>Voir la fiche</Link>
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
 
-      <section className="card" style={{ marginTop: "1rem" }}>
-        <h2>Cours suivis</h2>
-        {inscriptions.length === 0 ? (
-          <p>Pas encore de formation.</p>
+      <section>
+        <h2>Mes formations</h2>
+        {seances.length === 0 ? (
+          <p>Aucune séance à venir.</p>
         ) : (
-          inscriptions.map((i) => (
-            <div key={i.id} style={{ marginBottom: "1rem" }}>
-              <h3>{i.cours.titre}</h3>
-              <ul className="plain">
-                {i.cours.emploisDuTemps.flatMap((edt) =>
-                  edt.sessions.map((s) => (
-                    <li key={s.id}>
-                      {s.dateReelle.toISOString()} — {s.statut}
-                      {s.joinUrl ? (
-                        <>
-                          {" "}
-                          ·{" "}
-                          <a href={s.joinUrl} target="_blank" rel="noreferrer">
-                            Lien visio
-                          </a>
-                        </>
-                      ) : null}
-                    </li>
-                  )),
-                )}
-              </ul>
-            </div>
-          ))
+          <div className="live-grid">
+            {seances.map((seance) => {
+              const lien = lienZoomSession(seance.session);
+              const presents = participants.get(seance.session.id) ?? [];
+              return (
+                <article className="live-card" key={seance.id}>
+                  {seance.image ? <img src={seance.image} alt="" /> : null}
+                  <div>
+                    <p className="upcoming-meta">
+                      <span>{seance.origine}</span>
+                      <span>{seance.session.fuseauHoraire}</span>
+                    </p>
+                    <h3>{seance.titre}</h3>
+                    <p>{formaterCreneau(seance.session.dateReelle, seance.session.fuseauHoraire)}</p>
+                    {seance.horaire ? <p className="muted">{seance.horaire}</p> : null}
+                    <CompteARebours
+                      debutIso={seance.session.dateReelle.toISOString()}
+                      finIso={seance.session.dateFin ? seance.session.dateFin.toISOString() : null}
+                    />
+                    <div className="actions">
+                      {lien ? (
+                        <a className="btn zoom-cta" href={lien} target="_blank" rel="noreferrer">
+                          Rejoindre sur Zoom
+                        </a>
+                      ) : (
+                        <span className="muted">Le lien Zoom n’est pas encore renseigné.</span>
+                      )}
+                      {seance.session.codeReunion ? <BoutonCopier valeur={seance.session.codeReunion} /> : null}
+                    </div>
+                    <h4>Participants</h4>
+                    {presents.length === 0 ? (
+                      <p className="muted">Vous êtes le premier inscrit visible.</p>
+                    ) : (
+                      <ul className="plain">
+                        {presents.map((personne) => (
+                          <li key={personne.id}>{personne.nom}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="card" style={{ marginTop: "1rem" }}>
+        <h2>Ressources de cours</h2>
+        {ressources.size === 0 ? (
+          <p>Aucun document n’a encore été déposé pour vos formations.</p>
+        ) : (
+          <ul className="plain">
+            {Array.from(ressources.values()).map((ressource) => (
+              <li key={ressource.id}>
+                <a href={`/api/documents/ressources/${ressource.id}`}>{ressource.titre}</a>
+                <span className="muted"> · {ressource.nomFichier}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="card" style={{ marginTop: "1rem" }}>
+        <h2>Certificats</h2>
+        {certificats.length === 0 ? (
+          <p>Aucun certificat ne vous a encore été attribué.</p>
+        ) : (
+          <ul className="plain">
+            {certificats.map((certificat) => (
+              <li key={certificat.id}>
+                <a href={`/api/documents/certificats/${certificat.id}`}>{certificat.titre}</a>
+                <span className="muted"> · {certificat.cours.titre} · télécharger</span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </>

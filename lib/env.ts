@@ -59,6 +59,60 @@ export function getAppUrl(): string {
   return read("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000";
 }
 
+export type PaymentMode = "test" | "stripe";
+
+export function getPaymentMode(): PaymentMode {
+  const raw = read("PAYMENT_MODE") ?? "test";
+  if (raw === "test" || raw === "stripe") {
+    return raw;
+  }
+  throw new EnvError("PAYMENT_MODE", "Valeurs acceptées : test (simulateur) ou stripe.");
+}
+
+export function getReservationTtlMs(): number {
+  const raw = read("RESERVATION_TTL_MINUTES");
+  const minutes = raw ? Number.parseInt(raw, 10) : 30;
+  if (!Number.isInteger(minutes) || minutes < 5 || minutes > 120) {
+    throw new EnvError(
+      "RESERVATION_TTL_MINUTES",
+      "Durée de réservation temporaire des places, entier entre 5 et 120 minutes.",
+    );
+  }
+  return minutes * 60 * 1000;
+}
+
+export function getPaymentWebhookSecret(): string {
+  const value = read("PAYMENT_WEBHOOK_SECRET");
+  if (value) {
+    return value;
+  }
+  if (getPaymentMode() === "test" && process.env.NODE_ENV !== "production") {
+    return "hannon-paiement-test-dev";
+  }
+  throw new EnvError(
+    "PAYMENT_WEBHOOK_SECRET",
+    "Secret HMAC des webhooks de paiement. Générer avec `openssl rand -hex 32`.",
+  );
+}
+
+export function getStripeSecretKey(): string {
+  return requireValue(
+    "STRIPE_SECRET_KEY",
+    "Stripe Dashboard > Developers > API keys. Utiliser une clé sk_test_… en mode test.",
+  );
+}
+
+export function getStripeWebhookSecret(): string {
+  return requireValue(
+    "STRIPE_WEBHOOK_SECRET",
+    "Stripe Dashboard > Developers > Webhooks > signing secret (whsec_…).",
+  );
+}
+
+export function stripeEstEnModeTest(): boolean {
+  return (read("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_");
+}
+
 export type ZoomEnv = {
   accountId: string;
   clientId: string;
@@ -132,5 +186,13 @@ export function describeMissingSecrets(): string[] {
   if (!hasZoomWebhookSecret()) missing.push("ZOOM_WEBHOOK_SECRET_TOKEN");
   if (!read("RESEND_API_KEY")) missing.push("RESEND_API_KEY");
   if (!read("RESEND_FROM_EMAIL")) missing.push("RESEND_FROM_EMAIL");
+  if (!read("AUTH_SECRET")) missing.push("AUTH_SECRET");
+  if (read("PAYMENT_MODE") === "stripe") {
+    if (!read("STRIPE_SECRET_KEY")) missing.push("STRIPE_SECRET_KEY");
+    if (!read("STRIPE_WEBHOOK_SECRET")) missing.push("STRIPE_WEBHOOK_SECRET");
+  }
+  if (process.env.NODE_ENV === "production" && !read("PAYMENT_WEBHOOK_SECRET")) {
+    missing.push("PAYMENT_WEBHOOK_SECRET");
+  }
   return missing;
 }

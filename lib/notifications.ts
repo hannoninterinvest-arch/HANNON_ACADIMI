@@ -72,6 +72,11 @@ export async function notifierChangement(
     throw new Error(`Session introuvable : ${sessionId}`);
   }
 
+  if (!session.emploiDuTemps) {
+    logger.info("notifierChangement ignoré : session sans emploi du temps récurrent", { sessionId, type });
+    return { envoyes: 0, ignores: true };
+  }
+
   const destinataires = session.emploiDuTemps.cours.inscriptions.map(
     (inscription) => inscription.etudiant.email,
   );

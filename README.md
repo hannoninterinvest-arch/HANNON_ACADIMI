@@ -1,6 +1,20 @@
 # HANNON ACADIMI
 
-Plateforme e-learning Next.js : les formateurs animent des cours Zoom sans jamais recevoir les identifiants des licences. Un pool de comptes Zoom est mutualisé ; chaque formateur reçoit uniquement le **host key** pour revendiquer l'animation.
+Plateforme de formation Next.js : catalogue, sessions datées, achats B2C / B2B / B2G, affectation des places et espace apprenant. Les formateurs animent en visio sans recevoir les identifiants des licences Zoom ; le lien de chaque session commerciale est saisi manuellement par l'administrateur.
+
+## Parcours
+
+- Catalogue et fiche formation : tarifs, dates, places restantes, conditions de remise.
+- Particulier : compte, achat d'une place, planning, Zoom, ressources, certificats.
+- Organisation (entreprise ou organisme public) : achat d'un lot, invitations, import CSV, affectation dans la limite des places payées.
+- Administrateur : sessions, capacité, lien Zoom, tarifs, commandes, demandes, documents.
+- Le paiement n'est confirmé que par webhook signé. `PAYMENT_MODE=test` simule le prestataire sans prélèvement. `PAYMENT_MODE=stripe` utilise Stripe Checkout (`sk_test_…` = mode test).
+
+Cron supplémentaire pour libérer les réservations expirées :
+
+```cron
+*/10 * * * * curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$NEXT_PUBLIC_APP_URL/api/cron/expirer-reservations"
+```
 
 ## Démarrage
 

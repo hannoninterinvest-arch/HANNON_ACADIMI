@@ -35,6 +35,15 @@ yarn-error.log*
 prisma/*.db
 prisma/*.db-journal
 
+# documents personnels (certificats, ressources)
+/storage/prive
+
+# photos déposées par l’administrateur
+/public/uploads/formations/*
+!/public/uploads/formations/.gitkeep
+/public/uploads/formateurs/*
+!/public/uploads/formateurs/.gitkeep
+
 # IDE
 .idea
 .vscode
