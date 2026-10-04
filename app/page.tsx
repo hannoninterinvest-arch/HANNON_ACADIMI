@@ -56,7 +56,7 @@ export default async function HomePage() {
 
   return (
     <main className="home">
-      <section className="hero-academy">
+      <section className="hero-academy" aria-label="Formation en équipe chez Hannon Academy">
         <div className="wrap hero-copy">
           <p className="kicker">Hannon Academy</p>
           <h1>Formez-vous avec exigence.</h1>
@@ -89,18 +89,14 @@ export default async function HomePage() {
 
       <section className="galerie" aria-label="La formation chez Hannon Academy">
         <div className="wrap mosaic">
-          <figure className="mosaic-large">
-            <img src={VISUELS[1].src} alt={VISUELS[1].alt} />
-          </figure>
           <figure>
             <img src={VISUELS[0].src} alt={VISUELS[0].alt} />
           </figure>
           <figure>
-            <img src={VISUELS[2].src} alt={VISUELS[2].alt} />
+            <img src={VISUELS[1].src} alt={VISUELS[1].alt} />
           </figure>
-          <figure className="mosaic-wide">
-            <img src={VISUELS[3].src} alt={VISUELS[3].alt} />
-            <figcaption>Présentiel, visio et intra-entreprise, avec les mêmes places tenues.</figcaption>
+          <figure>
+            <img src={VISUELS[2].src} alt={VISUELS[2].alt} />
           </figure>
         </div>
       </section>
