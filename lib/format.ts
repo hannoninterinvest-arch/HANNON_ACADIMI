@@ -19,6 +19,18 @@ export function formaterCreneau(date: Date, fuseau: string): string {
   });
 }
 
+export function decouperCreneau(date: Date, fuseau: string): { jour: string; mois: string; heure: string } {
+  const local = DateTime.fromJSDate(date, { zone: "utc" }).setZone(fuseau).setLocale("fr");
+  if (!local.isValid) {
+    return { jour: "—", mois: "", heure: "" };
+  }
+  return {
+    jour: local.toFormat("d"),
+    mois: local.toFormat("MMM").replace(".", ""),
+    heure: local.toFormat("HH:mm"),
+  };
+}
+
 export function combinerDateHeure(jour: string, heure: string, fuseau: string): Date {
   const dt = DateTime.fromISO(`${jour}T${heure}`, { zone: fuseau });
   if (!dt.isValid) {

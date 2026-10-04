@@ -1,13 +1,24 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { formatEuros, formaterCreneau } from "@/lib/format";
+import { formatEuros, formaterCreneau, decouperCreneau } from "@/lib/format";
 import { disponibilitesSessions } from "@/lib/commerce/service";
 
 export const dynamic = "force-dynamic";
 
-export default async function CataloguePage() {
+export default async function CataloguePage({ searchParams }: { searchParams: { q?: string } }) {
+  const recherche = searchParams.q?.trim() ?? "";
   const cours = await prisma.cours.findMany({
-    where: { ouvertB2c: true },
+    where: {
+      ouvertB2c: true,
+      ...(recherche
+        ? {
+            OR: [
+              { titre: { contains: recherche, mode: "insensitive" } },
+              { description: { contains: recherche, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { titre: "asc" },
     include: {
       tarif: { include: { regles: { where: { actif: true } } } },
@@ -26,13 +37,27 @@ export default async function CataloguePage() {
       <p className="eyebrow">Catalogue</p>
       <h1>Formations ouvertes</h1>
       <p className="lead">
-        Chaque carte indique le tarif individuel, la condition de remise pour les organisations et la
-        prochaine session avec ses places restantes.
+        Chaque carte indique le tarif individuel, la condition de remise pour les organisations et la prochaine
+        session avec ses places restantes.
       </p>
+      <form className="finder finder-page" action="/catalogue" method="get">
+        <label className="sr-only" htmlFor="q">
+          Rechercher une formation
+        </label>
+        <input id="q" name="q" defaultValue={recherche} placeholder="Rechercher une formation…" />
+        <button className="btn-gold" type="submit">
+          Rechercher
+        </button>
+      </form>
+      {recherche ? (
+        <p className="muted">
+          {cours.length} formation{cours.length > 1 ? "s" : ""} pour « {recherche} ».
+        </p>
+      ) : null}
       {cours.length === 0 ? (
         <div className="empty">
-          <p>Le catalogue est vide pour l’instant.</p>
-          <Link href="/demande">Proposer un sujet</Link>
+          <p>{recherche ? "Aucune formation ne correspond à cette recherche." : "Le catalogue est vide pour l’instant."}</p>
+          <Link href={recherche ? "/catalogue" : "/demande"}>{recherche ? "Voir tout le catalogue" : "Proposer un sujet"}</Link>
         </div>
       ) : (
         <div className="course-grid">
@@ -40,8 +65,13 @@ export default async function CataloguePage() {
             const session = item.sessionsCommerciales[0];
             const stock = session ? stocks.get(session.id) : undefined;
             const regle = item.tarif?.regles.find((regleItem) => regleItem.profils.includes("B2B"));
+            const date = session ? decouperCreneau(session.dateReelle, session.fuseauHoraire) : null;
             return (
               <article className="course-card" key={item.id}>
+                <div className="upcoming-meta">
+                  <span>Réf. HA-{item.id.slice(-4).toUpperCase()}</span>
+                  <span>{date ? `${date.jour} ${date.mois} · ${date.heure}` : "Sur demande"}</span>
+                </div>
                 <h2>{item.titre}</h2>
                 <p className="muted">{item.description}</p>
                 <p className="price">{item.tarif ? formatEuros(item.tarif.prixB2cCentimes) : "Tarif non publié"}</p>
@@ -56,7 +86,7 @@ export default async function CataloguePage() {
                 ) : null}
                 {session ? (
                   <p>
-                    Prochaine session : {formaterCreneau(session.dateReelle, session.fuseauHoraire)}
+                    {formaterCreneau(session.dateReelle, session.fuseauHoraire)}
                     <br />
                     <strong>{stock?.disponibles ?? session.capaciteMax} places disponibles</strong>
                   </p>

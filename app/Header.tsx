@@ -2,6 +2,7 @@ import Link from "next/link";
 import { lireSession, libelleRole, cheminEspace } from "@/lib/auth";
 import { actionDeconnexion } from "@/lib/actions";
 import { prisma } from "@/lib/prisma";
+import { MenuPrincipal } from "./components/MenuPrincipal";
 
 export async function Header() {
   const session = await lireSession();
@@ -10,35 +11,47 @@ export async function Header() {
     : null;
 
   return (
-    <header className="site-header">
-      <Link className="brand" href="/">
-        Hannon Acadimi
-      </Link>
-      <nav aria-label="Navigation principale">
-        <Link href="/catalogue">Catalogue</Link>
-        <Link href="/demande">Demande</Link>
-        {session ? (
-          <>
-            <span className="who-chip">
-              {session.nom} · {libelleRole(session.role, societe?.type)}
-            </span>
-            <Link href={cheminEspace(session.role)}>Mon espace</Link>
-            <form action={actionDeconnexion}>
-              <button type="submit" className="btn-secondary">
-                Déconnexion
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            <Link href="/inscription">Particulier</Link>
-            <Link href="/inscription-societe">Organisation</Link>
-            <Link className="btn" href="/connexion">
-              Connexion
-            </Link>
-          </>
-        )}
-      </nav>
-    </header>
+    <>
+      <div className="topbar">
+        <div className="topbar-inner">
+          <span>Centre de formation professionnelle</span>
+          <span className="topbar-gold">Présentiel · Distanciel · Intra-entreprise</span>
+          <Link href="/demande">Demander une session</Link>
+        </div>
+      </div>
+      <header className="site-header">
+        <div className="header-inner">
+          <Link className="brand" href="/">
+            <img src="/marque-hannon.png" alt="Hannon Academy" />
+          </Link>
+          <MenuPrincipal>
+            <Link href="/catalogue">Formations</Link>
+            <Link href="/#calendrier">Calendrier</Link>
+            <Link href="/demande">Intra-entreprise</Link>
+            {session ? (
+              <>
+                <span className="who-chip">
+                  {session.nom} · {libelleRole(session.role, societe?.type)}
+                </span>
+                <Link href={cheminEspace(session.role)}>Mon espace</Link>
+                <form action={actionDeconnexion}>
+                  <button type="submit" className="btn-secondary">
+                    Déconnexion
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <Link href="/inscription">Particulier</Link>
+                <Link href="/inscription-societe">Organisation</Link>
+                <Link className="btn-gold" href="/connexion">
+                  Connexion
+                </Link>
+              </>
+            )}
+          </MenuPrincipal>
+        </div>
+      </header>
+    </>
   );
 }
