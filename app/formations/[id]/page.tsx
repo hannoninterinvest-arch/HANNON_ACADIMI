@@ -80,6 +80,20 @@ export default async function FormationPage({
             {cours.imageChemin ? <img src={cours.imageChemin} alt="" /> : null}
             <span className="domaine-pill">{cours.domaine || "Formation en ligne"}</span>
           </div>
+          <div className="formateur-ligne">
+            {formateur?.photoChemin ? (
+              <img className="formateur-photo" src={formateur.photoChemin} alt="" />
+            ) : (
+              <span className="formateur-initiales" aria-hidden="true">
+                {formateur ? initiales(formateur.nom) : "HA"}
+              </span>
+            )}
+            <div>
+              <p className="eyebrow">Formateur</p>
+              <strong>{formateur?.nom ?? "Annoncé avant la session"}</strong>
+              <p className="muted">{formateur?.specialite || "Intervenant Hannon Academy"}</p>
+            </div>
+          </div>
           <h1>{cours.titre}</h1>
           <p className="lead">{cours.description || "Classe en direct, sur une session datée, avec un nombre de places tenu."}</p>
           <ul className="fiche-details">
@@ -96,20 +110,6 @@ export default async function FormationPage({
               <strong>Classe en ligne</strong>
             </li>
           </ul>
-          <div className="formateur-ligne">
-            {formateur?.photoChemin ? (
-              <img className="formateur-photo" src={formateur.photoChemin} alt="" />
-            ) : (
-              <span className="formateur-initiales" aria-hidden="true">
-                {formateur ? initiales(formateur.nom) : "HA"}
-              </span>
-            )}
-            <div>
-              <p className="eyebrow">Formateur</p>
-              <strong>{formateur?.nom ?? "Annoncé avant la session"}</strong>
-              <p className="muted">{formateur?.specialite || "Intervenant Hannon Academy"}</p>
-            </div>
-          </div>
         </article>
 
         <aside className="fiche-achat">

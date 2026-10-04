@@ -932,7 +932,6 @@ main.inscription h1 {
   position: relative;
   overflow: hidden;
   border-radius: 28px;
-  min-height: 280px;
   background:
     linear-gradient(145deg, rgba(22, 48, 110, 0.2), rgba(12, 27, 77, 0.55)),
     var(--navy);
@@ -941,7 +940,7 @@ main.inscription h1 {
 
 .affiche img {
   width: 100%;
-  height: min(62vw, 520px);
+  height: clamp(240px, 46vw, 420px);
   object-fit: cover;
   display: block;
 }
