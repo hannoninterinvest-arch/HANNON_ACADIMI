@@ -41,6 +41,8 @@ prisma/*.db-journal
 # photos déposées par l’administrateur
 /public/uploads/formations/*
 !/public/uploads/formations/.gitkeep
+/public/uploads/formateurs/*
+!/public/uploads/formateurs/.gitkeep
 
 # IDE
 .idea

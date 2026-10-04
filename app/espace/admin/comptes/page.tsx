@@ -1,6 +1,7 @@
 import { requireRole, libelleRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Banniere } from "@/app/components/Banniere";
+import { ChampsProfil } from "@/app/components/ChampsProfil";
 import {
   actionAdminCompteCreer,
   actionAdminCompteModifier,
@@ -36,9 +37,26 @@ export default async function AdminComptes({
         individuel.
       </p>
       <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
-      <div className="grid two">
+      <form className="stack card" action={actionAdminCompteCreer}>
+        <h2>Nouveau particulier</h2>
+        <input type="hidden" name="role" value="ETUDIANT_B2C" />
+        <ChampsProfil />
+        <div className="form-row">
+          <label>
+            E-mail
+            <input type="email" name="email" required />
+          </label>
+          <label>
+            Mot de passe
+            <input type="password" name="motDePasse" minLength={8} required />
+          </label>
+        </div>
+        <button type="submit">Créer le compte particulier</button>
+      </form>
+      <div className="grid two" style={{ marginTop: "1rem" }}>
         <form className="stack card" action={actionAdminCompteCreer}>
-          <h2>Particulier ou administrateur</h2>
+          <h2>Autre administrateur</h2>
+          <input type="hidden" name="role" value="ADMIN" />
           <label>
             Nom
             <input name="nom" required />
@@ -51,14 +69,7 @@ export default async function AdminComptes({
             Mot de passe
             <input type="password" name="motDePasse" minLength={8} required />
           </label>
-          <label>
-            Rôle
-            <select name="role" defaultValue="ETUDIANT_B2C">
-              <option value="ETUDIANT_B2C">Particulier</option>
-              <option value="ADMIN">Administrateur</option>
-            </select>
-          </label>
-          <button type="submit">Créer le compte</button>
+          <button type="submit">Créer l’administrateur</button>
         </form>
         <form className="stack card" action={actionAdminSocieteCreer}>
           <h2>Organisation</h2>

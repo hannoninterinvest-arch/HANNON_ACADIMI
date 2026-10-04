@@ -22,12 +22,15 @@ export default async function AdminFormations({
   searchParams: { ok?: string; erreur?: string };
 }) {
   await requireRole("ADMIN");
-  const cours = await prisma.cours.findMany({
-    include: {
-      sessionsCommerciales: { orderBy: { dateReelle: "asc" } },
-    },
-    orderBy: { titre: "asc" },
-  });
+  const [cours, formateurs] = await Promise.all([
+    prisma.cours.findMany({
+      include: {
+        sessionsCommerciales: { orderBy: { dateReelle: "asc" } },
+      },
+      orderBy: { titre: "asc" },
+    }),
+    prisma.formateur.findMany({ orderBy: { nom: "asc" } }),
+  ]);
   const participants = await participantsParSession(
     cours.flatMap((item) => item.sessionsCommerciales.map((session) => session.id)),
     true,
@@ -37,7 +40,7 @@ export default async function AdminFormations({
     <>
       <h1>Formations</h1>
       <p className="lead">
-        Créez la formation, sa photo, son emploi du temps, la date, l’horaire et le lien Zoom. Le catalogue reste vide
+        Publiez l’affiche, le domaine, le formateur, les détails et la session en ligne. Le catalogue reste vide
         tant que vous n’en publiez pas.
       </p>
       <Banniere erreur={searchParams.erreur} ok={searchParams.ok} />
@@ -47,9 +50,26 @@ export default async function AdminFormations({
           Titre
           <input name="titre" required />
         </label>
+        <div className="form-row">
+          <label>
+            Domaine
+            <input name="domaine" placeholder="Bureautique, langues, management…" />
+          </label>
+          <label>
+            Formateur
+            <select name="formateurId" defaultValue="">
+              <option value="">Annoncé plus tard</option>
+              {formateurs.map((formateur) => (
+                <option key={formateur.id} value={formateur.id}>
+                  {formateur.nom}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label>
-          Description
-          <textarea name="description" rows={3} />
+          Détails de la formation
+          <textarea name="description" rows={3} placeholder="Objectifs, public, déroulé de la classe en ligne…" />
         </label>
         <label>
           Emploi du temps
@@ -103,7 +123,7 @@ export default async function AdminFormations({
           </select>
         </label>
         <label>
-          Ou déposer une photo
+          Ou déposer l’affiche
           <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/avif" />
         </label>
         <button type="submit">Publier la formation</button>
@@ -129,8 +149,25 @@ export default async function AdminFormations({
                     Titre
                     <input name="titre" defaultValue={item.titre} required />
                   </label>
+                  <div className="form-row">
+                    <label>
+                      Domaine
+                      <input name="domaine" defaultValue={item.domaine ?? ""} />
+                    </label>
+                    <label>
+                      Formateur
+                      <select name="formateurId" defaultValue={session?.formateurId ?? ""}>
+                        <option value="">Annoncé plus tard</option>
+                        {formateurs.map((formateur) => (
+                          <option key={formateur.id} value={formateur.id}>
+                            {formateur.nom}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                   <label>
-                    Description
+                    Détails
                     <textarea name="description" rows={2} defaultValue={item.description ?? ""} />
                   </label>
                   <label>

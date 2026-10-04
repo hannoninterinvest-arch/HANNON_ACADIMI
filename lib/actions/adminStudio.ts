@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { combinerDateHeure } from "@/lib/format";
 import { hasherMotDePasse } from "@/lib/password";
 import { enregistrerPhotoFormation } from "@/lib/photos";
+import { lireProfilParticulier } from "@/lib/profil";
 import { visuelAutorise } from "@/lib/visuels";
 
 function texte(form: FormData, key: string): string {
@@ -45,9 +46,11 @@ async function creerSessionInitiale(coursId: string, form: FormData): Promise<vo
     throw new Error("CHAMPS");
   }
   const capacite = Number.parseInt(texte(form, "capaciteMax") || "20", 10);
+  const formateurId = await formateurDepuisFormulaire(form);
   await prisma.session.create({
     data: {
       coursId,
+      formateurId,
       dateReelle,
       dateFin,
       fuseauHoraire: "Europe/Paris",
@@ -58,6 +61,18 @@ async function creerSessionInitiale(coursId: string, form: FormData): Promise<vo
       codeReunion: texte(form, "codeReunion") || null,
     },
   });
+}
+
+async function formateurDepuisFormulaire(form: FormData): Promise<string | null> {
+  const formateurId = texte(form, "formateurId");
+  if (!formateurId) {
+    return null;
+  }
+  const formateur = await prisma.formateur.findUnique({ where: { id: formateurId }, select: { id: true } });
+  if (!formateur) {
+    throw new Error("CHAMPS");
+  }
+  return formateur.id;
 }
 
 export async function actionAdminFormationComplet(form: FormData): Promise<void> {
@@ -71,6 +86,7 @@ export async function actionAdminFormationComplet(form: FormData): Promise<void>
     const cours = await prisma.cours.create({
       data: {
         titre,
+        domaine: texte(form, "domaine") || null,
         description: texte(form, "description") || null,
         horaire: texte(form, "horaire") || null,
         imageChemin: imageChemin ?? null,
@@ -126,6 +142,7 @@ export async function actionAdminFormationModifier(form: FormData): Promise<void
       where: { id: coursId },
       data: {
         titre,
+        domaine: texte(form, "domaine") || null,
         description: texte(form, "description") || null,
         horaire: texte(form, "horaire") || null,
         imageChemin,
@@ -143,11 +160,13 @@ export async function actionAdminFormationModifier(form: FormData): Promise<void
       const data: {
         lienZoomManuel: string | null;
         codeReunion: string | null;
+        formateurId: string | null;
         dateReelle?: Date;
         dateFin?: Date;
       } = {
         lienZoomManuel: texte(form, "lienZoomManuel") || null,
         codeReunion: texte(form, "codeReunion") || null,
+        formateurId: await formateurDepuisFormulaire(form),
       };
       if (jour && heureDebut && heureFin) {
         data.dateReelle = combinerDateHeure(jour, heureDebut, "Europe/Paris");
@@ -204,12 +223,13 @@ export async function actionAdminFormationSupprimer(form: FormData): Promise<voi
 
 export async function actionAdminCompteCreer(form: FormData): Promise<void> {
   await requireRole("ADMIN");
-  const nom = texte(form, "nom");
   const email = texte(form, "email").toLowerCase();
   const motDePasse = String(form.get("motDePasse") ?? "");
   const roleDemande = texte(form, "role");
   const role: RoleCompte = roleDemande === "ADMIN" ? "ADMIN" : "ETUDIANT_B2C";
-  if (!nom || !email || motDePasse.length < 8) {
+  const profil = role === "ETUDIANT_B2C" ? lireProfilParticulier(form) : null;
+  const nom = role === "ADMIN" ? texte(form, "nom") : profil?.nomComplet ?? "";
+  if (!nom || !email || motDePasse.length < 8 || (role === "ETUDIANT_B2C" && !profil)) {
     redirect("/espace/admin/comptes?erreur=CHAMPS");
   }
   if (await prisma.compte.findUnique({ where: { email } })) {
@@ -218,10 +238,21 @@ export async function actionAdminCompteCreer(form: FormData): Promise<void> {
   const hash = await hasherMotDePasse(motDePasse);
   if (role === "ADMIN") {
     await prisma.compte.create({ data: { nom, email, motDePasse: hash, role: "ADMIN" } });
-  } else {
-    const etudiant = await prisma.etudiant.create({ data: { nom, email } });
+  } else if (profil) {
+    const etudiant = await prisma.etudiant.create({
+      data: {
+        nom: profil.nom,
+        prenom: profil.prenom,
+        email,
+        telephone: profil.telephone,
+        niveauEtude: profil.niveauEtude,
+        situation: profil.situation,
+        ville: profil.ville,
+        dateNaissance: profil.dateNaissance,
+      },
+    });
     await prisma.compte.create({
-      data: { nom, email, motDePasse: hash, role: "ETUDIANT_B2C", etudiantId: etudiant.id },
+      data: { nom: profil.nomComplet, email, motDePasse: hash, role: "ETUDIANT_B2C", etudiantId: etudiant.id },
     });
   }
   redirect("/espace/admin/comptes?ok=compte");

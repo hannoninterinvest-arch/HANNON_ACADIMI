@@ -9,7 +9,10 @@ const EXTENSIONS: Record<string, string> = {
   "image/avif": "avif",
 };
 
-export async function enregistrerPhotoFormation(fichier: File): Promise<string> {
+export async function enregistrerPhoto(
+  fichier: File,
+  dossierPublic: "formations" | "formateurs",
+): Promise<string> {
   const extension = EXTENSIONS[fichier.type];
   if (!extension) {
     throw new Error("PHOTO");
@@ -18,8 +21,12 @@ export async function enregistrerPhotoFormation(fichier: File): Promise<string> 
     throw new Error("PHOTO");
   }
   const nom = `${randomBytes(16).toString("hex")}.${extension}`;
-  const dossier = path.join(process.cwd(), "public", "uploads", "formations");
+  const dossier = path.join(process.cwd(), "public", "uploads", dossierPublic);
   await mkdir(dossier, { recursive: true });
   await writeFile(path.join(dossier, nom), Buffer.from(await fichier.arrayBuffer()));
-  return `/uploads/formations/${nom}`;
+  return `/uploads/${dossierPublic}/${nom}`;
+}
+
+export async function enregistrerPhotoFormation(fichier: File): Promise<string> {
+  return enregistrerPhoto(fichier, "formations");
 }

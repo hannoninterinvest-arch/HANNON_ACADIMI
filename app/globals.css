@@ -195,7 +195,7 @@ main.home {
   background-color: var(--navy);
   background-image:
     linear-gradient(180deg, rgba(7, 20, 51, 0.78) 0%, rgba(12, 27, 77, 0.62) 46%, rgba(7, 20, 51, 0.84) 100%),
-    url("/hannon-formation-equipe.avif");
+    url("/hannon-professionnel-en-ligne.avif");
   background-position: center, center 42%;
   background-size: cover, cover;
   background-repeat: no-repeat;
@@ -824,6 +824,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   .stat-grid.four, .band .stat-grid { grid-template-columns: repeat(4, 1fr); }
   .quotes { grid-template-columns: repeat(3, 1fr); }
   .partner-row { grid-template-columns: repeat(5, 1fr); }
+  .fiche-layout { grid-template-columns: 1.15fr 0.85fr; }
+  .inscription-studio { grid-template-columns: 0.9fr 1.1fr; }
+  .fiche-achat { position: sticky; top: 96px; }
+  .fiche-details { grid-template-columns: repeat(3, 1fr); }
+  .inscription-visuel,
+  .inscription-visuel img { min-height: 640px; }
 }
 
 @media (max-width: 860px) {
@@ -867,6 +873,18 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   gap: 0.8rem;
 }
 .mosaic figure { margin: 0; position: relative; }
+.mosaic figure::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 46%;
+  border-radius: 0 0 20px 20px;
+  background: linear-gradient(transparent, rgba(7, 20, 51, 0.78));
+  pointer-events: none;
+}
+.mosaic figcaption { z-index: 1; }
 .mosaic img, .course-photo, .mode-photo, .formation-cover, .live-card img {
   width: 100%;
   object-fit: cover;
@@ -889,6 +907,174 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .mode-card.featured .mode-photo { filter: saturate(0.85); }
 .course-photo { height: 160px; border-radius: 14px; margin: -0.2rem 0 0.3rem; }
 .formation-cover { height: 280px; border-radius: 20px; margin: 0 0 1rem; }
+
+main.fiche h1,
+main.inscription h1 {
+  border-left: 0;
+  padding-left: 0;
+  margin: 0.85rem 0 0.35rem;
+}
+
+.fiche-layout,
+.inscription-studio {
+  display: grid;
+  gap: 1.3rem;
+  align-items: start;
+}
+
+.fiche-corps,
+.fiche-achat {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.affiche {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  min-height: 280px;
+  background:
+    linear-gradient(145deg, rgba(22, 48, 110, 0.2), rgba(12, 27, 77, 0.55)),
+    var(--navy);
+  box-shadow: 0 24px 50px rgba(12, 27, 77, 0.18);
+}
+
+.affiche img {
+  width: 100%;
+  height: min(62vw, 520px);
+  object-fit: cover;
+  display: block;
+}
+
+.affiche-vide {
+  min-height: 240px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(232, 201, 122, 0.35), transparent 32%),
+    linear-gradient(160deg, #16306e, var(--navy));
+}
+
+.domaine-pill {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(7, 20, 51, 0.82);
+  color: var(--gold-2);
+  border: 1px solid rgba(232, 201, 122, 0.6);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.fiche-details {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fiche-details li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.fiche-details span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.formateur-ligne {
+  display: flex;
+  gap: 0.95rem;
+  align-items: center;
+  padding: 0.95rem;
+  border-radius: 20px;
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.formateur-ligne .eyebrow { margin: 0; }
+.formateur-ligne strong { display: block; font-family: var(--font-serif); font-size: 1.35rem; }
+.formateur-ligne p { margin: 0.1rem 0 0; }
+
+.formateur-photo,
+.formateur-initiales {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.formateur-photo { object-fit: cover; border: 3px solid var(--gold-2); }
+
+.formateur-initiales {
+  display: grid;
+  place-items: center;
+  background: var(--navy);
+  color: var(--gold-2);
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+}
+
+.fiche-achat { align-content: start; }
+
+.inscription-visuel {
+  position: relative;
+  overflow: hidden;
+  min-height: 320px;
+  border-radius: 28px;
+  background: var(--navy);
+  color: white;
+  box-shadow: 0 24px 50px rgba(12, 27, 77, 0.18);
+}
+
+.inscription-visuel img {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
+.inscription-visuel .overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1.5rem 1.3rem 1.4rem;
+  background: linear-gradient(transparent, rgba(7, 20, 51, 0.92));
+}
+
+.inscription-visuel h1 {
+  color: white;
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  line-height: 0.95;
+  max-width: 12ch;
+  text-shadow: 0 10px 28px rgba(7, 20, 51, 0.45);
+}
+
+.inscription-visuel p:last-child {
+  color: #f3ecdf;
+  max-width: 28rem;
+}
+
+.vignette {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.45rem;
+}
 .live-grid { display: grid; gap: 1rem; }
 .live-card {
   display: grid;

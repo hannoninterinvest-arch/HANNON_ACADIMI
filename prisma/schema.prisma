@@ -180,10 +180,12 @@ model Invitation {
 }
 
 model Formateur {
-  id        String   @id @default(cuid())
-  nom       String
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  nom         String
+  email       String   @unique
+  specialite  String?
+  photoChemin String?
+  createdAt   DateTime @default(now())
 
   emploisDuTemps   EmploiDuTemps[]
   compte           Compte?
@@ -193,6 +195,7 @@ model Formateur {
 model Cours {
   id          String   @id @default(cuid())
   titre       String
+  domaine     String?
   description String?
   horaire     String?
   imageChemin String?
@@ -237,10 +240,16 @@ model RegleRemise {
 }
 
 model Etudiant {
-  id        String   @id @default(cuid())
-  nom       String
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id            String    @id @default(cuid())
+  nom           String
+  prenom        String?
+  email         String    @unique
+  telephone     String?
+  niveauEtude   String?
+  situation     String?
+  ville         String?
+  dateNaissance DateTime? @db.Date
+  createdAt     DateTime  @default(now())
 
   inscriptions Inscription[]
   compte       Compte?

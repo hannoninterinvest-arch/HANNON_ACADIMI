@@ -14,6 +14,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
         ? {
             OR: [
               { titre: { contains: recherche, mode: "insensitive" } },
+              { domaine: { contains: recherche, mode: "insensitive" } },
               { description: { contains: recherche, mode: "insensitive" } },
             ],
           }
@@ -26,6 +27,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
         where: { statutInscription: "OUVERTE", dateReelle: { gte: new Date() } },
         orderBy: { dateReelle: "asc" },
         take: 1,
+        include: { formateur: { select: { nom: true } } },
       },
     },
   });
@@ -37,8 +39,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
       <p className="eyebrow">Catalogue</p>
       <h1>Formations ouvertes</h1>
       <p className="lead">
-        Chaque carte indique le tarif individuel, la condition de remise pour les organisations et la prochaine
-        session avec ses places restantes.
+        Chaque fiche indique le domaine, le formateur, le tarif et la prochaine classe en ligne.
       </p>
       <form className="finder finder-page" action="/catalogue" method="get">
         <label className="sr-only" htmlFor="q">
@@ -70,10 +71,11 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
               <article className="course-card" key={item.id}>
                 {item.imageChemin ? <img className="course-photo" src={item.imageChemin} alt="" /> : null}
                 <div className="upcoming-meta">
-                  <span>Réf. HA-{item.id.slice(-4).toUpperCase()}</span>
+                  <span>{item.domaine || "En ligne"}</span>
                   <span>{date ? `${date.jour} ${date.mois} · ${date.heure}` : "Sur demande"}</span>
                 </div>
                 <h2>{item.titre}</h2>
+                <p className="muted">{session?.formateur?.nom ?? "Formateur annoncé avant la session"}</p>
                 <p className="muted">{item.description}</p>
                 <p className="price">{item.tarif ? formatEuros(item.tarif.prixB2cCentimes) : "Tarif non publié"}</p>
                 {item.tarif ? (
@@ -95,7 +97,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
                   <p className="muted">Aucune session ouverte. Une demande reste possible.</p>
                 )}
                 <Link className="btn" href={`/formations/${item.id}`}>
-                  Choisir une session
+                  Voir la fiche
                 </Link>
               </article>
             );

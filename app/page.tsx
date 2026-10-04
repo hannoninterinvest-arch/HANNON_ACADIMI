@@ -8,10 +8,6 @@ import { VISUELS } from "@/lib/visuels";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function referenceCourte(id: string): string {
-  return `HA-${id.slice(-4).toUpperCase()}`;
-}
-
 export default async function HomePage() {
   try {
     await seedIfEmpty(prisma);
@@ -31,6 +27,7 @@ export default async function HomePage() {
             where: { statutInscription: "OUVERTE", dateReelle: { gte: new Date() } },
             orderBy: { dateReelle: "asc" },
             take: 1,
+            include: { formateur: { select: { nom: true } } },
           },
         },
       })
@@ -40,7 +37,7 @@ export default async function HomePage() {
         where: { statutInscription: "OUVERTE", dateReelle: { gte: new Date() } },
         orderBy: { dateReelle: "asc" },
         take: 3,
-        include: { cours: true, emploiDuTemps: { include: { cours: true } } },
+        include: { cours: true, formateur: true, emploiDuTemps: { include: { cours: true, formateur: true } } },
       })
       .catch(() => []),
     Promise.all([
@@ -56,13 +53,13 @@ export default async function HomePage() {
 
   return (
     <main className="home">
-      <section className="hero-academy" aria-label="Formation en équipe chez Hannon Academy">
+      <section className="hero-academy" aria-label="Formation en ligne chez Hannon Academy">
         <div className="wrap hero-copy">
-          <p className="kicker">Hannon Academy</p>
-          <h1>Formez-vous avec exigence.</h1>
+          <p className="kicker">Formations en ligne</p>
+          <h1>Vos classes, en direct.</h1>
           <p className="lead">
-            Sessions datées, places limitées, suivi clair. Particuliers, entreprises et organismes publics
-            choisissent un format, voient le tarif, puis retrouvent le lien, les ressources et le certificat.
+            Une affiche, un formateur, un domaine et une session datée. Vous créez votre compte, vous réservez
+            votre place, puis vous rejoignez la classe depuis votre espace.
           </p>
           <form className="finder" action="/catalogue" method="get">
             <label className="sr-only" htmlFor="recherche-formation">
@@ -75,13 +72,13 @@ export default async function HomePage() {
           </form>
           <ol className="hero-steps">
             <li>
-              <span>01</span>Choisissez une date
+              <span>01</span>Choisissez une classe en ligne
             </li>
             <li>
-              <span>02</span>Réservez une place ou un lot
+              <span>02</span>Complétez votre dossier
             </li>
             <li>
-              <span>03</span>Retrouvez Zoom et le certificat
+              <span>03</span>Rejoignez la session
             </li>
           </ol>
         </div>
@@ -91,12 +88,15 @@ export default async function HomePage() {
         <div className="wrap mosaic">
           <figure>
             <img src={VISUELS[0].src} alt={VISUELS[0].alt} />
+            <figcaption>Depuis chez vous</figcaption>
           </figure>
           <figure>
             <img src={VISUELS[1].src} alt={VISUELS[1].alt} />
+            <figcaption>Classe en direct</figcaption>
           </figure>
           <figure>
             <img src={VISUELS[2].src} alt={VISUELS[2].alt} />
+            <figcaption>Avec votre formateur</figcaption>
           </figure>
         </div>
       </section>
@@ -119,6 +119,8 @@ export default async function HomePage() {
             <div className="upcoming-grid">
               {sessions.map((session) => {
                 const titre = session.cours?.titre ?? session.emploiDuTemps?.cours.titre ?? "Formation";
+                const domaine = session.cours?.domaine ?? session.emploiDuTemps?.cours.domaine;
+                const formateur = session.formateur?.nom ?? session.emploiDuTemps?.formateur.nom;
                 const coursId = session.coursId ?? session.emploiDuTemps?.coursId;
                 const date = decouperCreneau(session.dateReelle, session.fuseauHoraire);
                 return (
@@ -130,8 +132,8 @@ export default async function HomePage() {
                     </div>
                     <div className="ticket-body">
                       <p className="upcoming-meta">
-                        <span>Réf. {referenceCourte(session.id)}</span>
-                        <span>{session.capaciteMax} places</span>
+                        <span>{domaine || "En ligne"}</span>
+                        <span>{formateur || `${session.capaciteMax} places`}</span>
                       </p>
                       <h3>{titre}</h3>
                       <p className="muted">{formaterCreneau(session.dateReelle, session.fuseauHoraire)}</p>
@@ -154,7 +156,7 @@ export default async function HomePage() {
           <p className="eyebrow">Nos formations</p>
           <h2>Incontournables</h2>
           <p className="lead center">
-            Le tarif affiché est celui d’une place individuelle. Les organisations voient la remise avant de valider un lot.
+            Chaque formation en ligne affiche son domaine, son formateur et le tarif d’une place.
           </p>
           {cours.length === 0 ? (
             <div className="empty">
@@ -169,11 +171,12 @@ export default async function HomePage() {
                 return (
                   <article className="course-card" key={item.id}>
                     <div className="upcoming-meta">
-                      <span>Réf. {referenceCourte(item.id)}</span>
+                      <span>{item.domaine || "En ligne"}</span>
                       <span>{date ? `${date.jour} ${date.mois}` : "Sur demande"}</span>
                     </div>
                     {item.imageChemin ? <img className="course-photo" src={item.imageChemin} alt="" /> : null}
                     <h3>{item.titre}</h3>
+                    <p className="muted">{session?.formateur?.nom ?? "Formateur annoncé avant la session"}</p>
                     <p className="muted">{item.description}</p>
                     <p className="price">
                       {item.tarif ? formatEuros(item.tarif.prixB2cCentimes) : "Tarif à venir"}
@@ -203,30 +206,30 @@ export default async function HomePage() {
 
       <section className="section formats">
         <div className="wrap">
-          <h2 className="center">Apprenez comme vous le souhaitez</h2>
+          <h2 className="center">La classe se tient en ligne</h2>
           <div className="mode-grid">
-            <article className="mode-card">
-              <img className="mode-photo" src={VISUELS[3].src} alt="" />
-              <span className="mode-index">01</span>
-              <h3>Classe en présentiel</h3>
-              <ul>
-                <li>Échangez avec le formateur et les autres participants.</li>
-                <li>Une session datée, une capacité tenue.</li>
-                <li>Le planning reste visible dans votre espace.</li>
-              </ul>
-            </article>
             <article className="mode-card featured">
               <img className="mode-photo" src={VISUELS[2].src} alt="" />
-              <span className="mode-index">02</span>
-              <h3>Classe à distance</h3>
+              <span className="mode-index">01</span>
+              <h3>Classe en ligne</h3>
               <ul>
-                <li>Rejoignez la formation sur Zoom depuis votre espace.</li>
-                <li>Le lien apparaît dès qu’il est publié.</li>
-                <li>Les ressources et le certificat restent au même endroit.</li>
+                <li>Rejoignez le formateur en direct, depuis chez vous.</li>
+                <li>L’affiche, le domaine et les détails sont sur la fiche.</li>
+                <li>Le lien et le code de réunion arrivent dans votre espace.</li>
               </ul>
               <Link className="btn-gold" href="/catalogue">
-                Voir les sessions
+                Voir les classes
               </Link>
+            </article>
+            <article className="mode-card">
+              <img className="mode-photo" src={VISUELS[3].src} alt="" />
+              <span className="mode-index">02</span>
+              <h3>Présentiel sur demande</h3>
+              <ul>
+                <li>Une session en salle, quand le sujet s’y prête.</li>
+                <li>Même fiche, même suivi, même certificat.</li>
+                <li>Le calendrier reste visible dans votre espace.</li>
+              </ul>
             </article>
             <article className="mode-card">
               <img className="mode-photo" src={VISUELS[0].src} alt="" />

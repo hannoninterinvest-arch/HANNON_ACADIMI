@@ -14,8 +14,8 @@ export async function Header() {
     <>
       <div className="topbar">
         <div className="topbar-inner">
-          <span>Centre de formation professionnelle</span>
-          <span className="topbar-gold">Présentiel · Distanciel · Intra-entreprise</span>
+          <span>Centre de formation en ligne</span>
+          <span className="topbar-gold">Classes en direct · Formateurs · Certificat</span>
           <Link href="/demande">Demander une session</Link>
         </div>
       </div>

@@ -13,6 +13,8 @@ import {
   type SessionUser,
 } from "@/lib/auth";
 import { hasherMotDePasse, verifierMotDePasse } from "@/lib/password";
+import { enregistrerPhoto } from "@/lib/photos";
+import { lireProfilParticulier } from "@/lib/profil";
 
 function texte(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
@@ -59,10 +61,10 @@ export async function actionDeconnexion(): Promise<void> {
 }
 
 export async function actionInscriptionB2c(form: FormData): Promise<void> {
-  const nom = texte(form, "nom");
+  const profil = lireProfilParticulier(form);
   const email = texte(form, "email").toLowerCase();
   const motDePasse = String(form.get("motDePasse") ?? "");
-  if (!nom || !email || motDePasse.length < 8) {
+  if (!profil || !email || motDePasse.length < 8) {
     redirect("/inscription?erreur=champs");
   }
   const existe = await prisma.compte.findUnique({ where: { email } });
@@ -71,12 +73,29 @@ export async function actionInscriptionB2c(form: FormData): Promise<void> {
   }
   const etudiant = await prisma.etudiant.upsert({
     where: { email },
-    update: { nom },
-    create: { nom, email },
+    update: {
+      nom: profil.nom,
+      prenom: profil.prenom,
+      telephone: profil.telephone,
+      niveauEtude: profil.niveauEtude,
+      situation: profil.situation,
+      ville: profil.ville,
+      dateNaissance: profil.dateNaissance,
+    },
+    create: {
+      nom: profil.nom,
+      prenom: profil.prenom,
+      email,
+      telephone: profil.telephone,
+      niveauEtude: profil.niveauEtude,
+      situation: profil.situation,
+      ville: profil.ville,
+      dateNaissance: profil.dateNaissance,
+    },
   });
   const compte = await prisma.compte.create({
     data: {
-      nom,
+      nom: profil.nomComplet,
       email,
       motDePasse: await hasherMotDePasse(motDePasse),
       role: RoleCompte.ETUDIANT_B2C,
@@ -95,14 +114,29 @@ export async function actionAdminFormateur(form: FormData): Promise<void> {
   await requireRole("ADMIN");
   const nom = texte(form, "nom");
   const email = texte(form, "email").toLowerCase();
+  const specialite = texte(form, "specialite") || null;
   const motDePasse = String(form.get("motDePasse") ?? "Hannon2026!");
   if (!nom || !email) {
     redirect("/espace/admin/formateurs?erreur=champs");
   }
+  let photoChemin: string | undefined;
+  const fichier = form.get("photo");
+  if (fichier instanceof File && fichier.size > 0) {
+    try {
+      photoChemin = await enregistrerPhoto(fichier, "formateurs");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "PHOTO";
+      redirect(`/espace/admin/formateurs?erreur=${code === "PHOTO" ? "PHOTO" : "champs"}`);
+    }
+  }
   const formateur = await prisma.formateur.upsert({
     where: { email },
-    update: { nom },
-    create: { nom, email },
+    update: {
+      nom,
+      specialite,
+      ...(photoChemin ? { photoChemin } : {}),
+    },
+    create: { nom, email, specialite, photoChemin: photoChemin ?? null },
   });
   await prisma.compte.upsert({
     where: { email },
