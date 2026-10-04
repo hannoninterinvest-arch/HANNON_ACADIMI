@@ -397,6 +397,7 @@ h1 {
 }
 
 .btn:hover, button:hover { background: var(--electric-dark); transform: translateY(-1px); }
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
 .btn-gold {
   background: linear-gradient(180deg, #f0d48a, var(--gold));
